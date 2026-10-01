@@ -1,0 +1,149 @@
+name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}
+
+services:
+  iris:
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris
+    build:
+      context: .
+      dockerfile: iris/Dockerfile
+      args:
+        IMAGE: ${IRIS_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0}
+    command: --check-caps false --ISCAgent false
+    environment:
+      ISC_DATA_DIRECTORY: /iris-shared/durable
+    ports:
+      - "${IRIS_WEB_PORT:-52773}:52773"
+      - "${IRIS_SUPERSERVER_PORT:-1972}:1972"
+    volumes:
+      - ./iris/shared:/iris-shared
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  webgateway:
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-webgateway
+    build:
+      context: .
+      dockerfile: webgateway/Dockerfile
+    environment:
+      ISC_DATA_DIRECTORY: /webgateway-shared/durable
+      ISC_CSP_CONF_FILE: /webgateway-shared/CSP.conf
+      ISC_CSP_INI_FILE: /webgateway-shared/CSP.ini
+    ports:
+      - "${WEBGATEWAY_HTTP_PORT:-8080}:80"
+      - "${WEBGATEWAY_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./webgateway/shared:/webgateway-shared
+    depends_on:
+      - iris
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  frontend:
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-frontend
+    build:
+      context: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - webgateway
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  llama:
+    profiles: ["ai"]
+    image: ${LLM_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-llama
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-mmap
+      - -m
+      - /models/${LLM_MODEL_FILE:-Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf}
+      - --alias
+      - ${LLM_MODEL_ALIAS:-llama-3.1-8b-instruct}
+      - -c
+      - "4096"
+      - -t
+      - "12"
+      - --temp
+      - "0.2"
+      - --jinja
+      - --chat-template-file
+      - /models/${LLM_CHAT_TEMPLATE:-meta-llama-Llama-3.1-8B-Instruct.jinja}
+    ports:
+      - "${LLM_PORT:-8000}:8000"
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  qwen:
+    profiles: ["ai"]
+    image: ${QWEN_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-qwen
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-mmap
+      - -m
+      - /models/${QWEN_MODEL_FILE:-Qwen3.5-9B-Q5_K_M.gguf}
+      - --alias
+      - ${QWEN_MODEL_ALIAS:-qwen3.5-9b}
+      - -c
+      - "${QWEN_CONTEXT_SIZE:-4096}"
+      - -t
+      - "${QWEN_THREADS:-12}"
+      - --temp
+      - "${QWEN_TEMPERATURE:-0.2}"
+      - --jinja
+    ports:
+      - "${QWEN_PORT:-8001}:8000"
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: ["gpu"]
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
