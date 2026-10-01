@@ -20,18 +20,25 @@ ClassMethod Create(agentName As %String, Output agent As %AI.Agent) As %Status
     set policies = rs.%Get("Policies")
 
     set model = ##class(%SQL.Statement).%ExecDirect(,
-        "SELECT Provider, ModelId, ConfigName FROM App_Governance.Model " _
+        "SELECT Provider, ModelId, Configuration FROM App_Governance.Model " _
         "WHERE Name = ? AND Status = 'approved' AND Enabled = 1", modelName)
     if model.%SQLCODE < 0 quit $$$ERROR($$$SQLError, model.%SQLCODE, model.%Message)
     if 'model.%Next() quit $$$ERROR($$$GeneralError, "The agent model is not approved and enabled")
 
-    set configName = model.%Get("ConfigName")
-    if configName = "" quit $$$ERROR($$$GeneralError, "The model has no AI Hub Config Store reference")
-
-    // Build 162 does not register an AI.LLM descriptor reliably. Retrieve the
-    // governed entry without descriptor validation while still resolving secrets.
-    set sc = ##class(%ConfigStore.Configuration).GetDetails(configName, .details, 0, 1)
+    set configuration = model.%Get("Configuration")
+    if configuration = "" quit $$$ERROR($$$GeneralError, "The model has no provider configuration")
+    set sc = $$$OK
+    try {
+        set details = {}.%FromJSON(configuration)
+    } catch exception {
+        set sc = $$$ERROR($$$GeneralError, "The model provider configuration is not valid JSON")
+    }
     if $$$ISERR(sc) quit sc
+    set secretResolver = ##class(%ConfigStore.Configuration).%New()
+    set secretResolver.Details = details
+    set sc = secretResolver.CopyDetails(.resolvedDetails, 1)
+    if $$$ISERR(sc) quit sc
+    set details = resolvedDetails
 
     set provider = ##class(%AI.Provider).Create(model.%Get("Provider"), details)
     if '$ISOBJECT(provider) quit $$$ERROR($$$GeneralError, "AI Hub could not create the provider")
@@ -82,10 +89,10 @@ ClassMethod AttachPolicies(agent As %AI.Agent, names As %String) As %Status [ In
         set rs = ##class(%SQL.Statement).%ExecDirect(,
             "SELECT ClassName, Type FROM App_Governance.Policy " _
             "WHERE Name = ? AND Status = 'approved' AND Enabled = 1", name)
-        if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Policy is not approved and enabled: " _ name)
+        if 'rs.%Next() return $$$ERROR($$$GeneralError, "Policy is not approved and enabled: " _ name)
         set className = rs.%Get("ClassName")
         set policy = $classmethod(className, "%New")
-        if '$isobject(policy) quit $$$ERROR($$$GeneralError, "Could not instantiate policy: " _ className)
+        if '$isobject(policy) return $$$ERROR($$$GeneralError, "Could not instantiate policy: " _ className)
         set type = rs.%Get("Type")
         // UserAccess is mandatory and is the authorization policy in this version.
         // Audit policies are selected dynamically per tool by DynamicAudit.

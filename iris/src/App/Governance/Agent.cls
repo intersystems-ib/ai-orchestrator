@@ -57,6 +57,41 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     quit $$$OK
 }
 
+ClassMethod Update(name As %String, payload As %DynamicObject,
+    Output result As %DynamicObject) As %Status
+{
+    set rs = ##class(%SQL.Statement).%ExecDirect(,
+        "SELECT ID FROM App_Governance.Agent WHERE Name = ?", name)
+    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Agent does not exist: " _ name)
+    set item = ..%OpenId(rs.%Get("ID"))
+
+    set modelName = payload.%Get("modelName", item.ModelName)
+    set tools = payload.%Get("tools", ##class(App.Governance.AgentTool).ListForAgent(name))
+    set policies = payload.%Get("policies", ##class(App.Governance.ClassUtil).CSVToArray(item.Policies))
+    set status = payload.%Get("status", item.Status)
+    set requireApproved = (status = "approved")
+    set sc = ..ValidateReferences(modelName, tools, policies, requireApproved)
+    if $$$ISERR(sc) quit sc
+
+    tstart
+    set item.DisplayName = payload.%Get("displayName", item.DisplayName)
+    set item.ModelName = modelName
+    set item.SystemPrompt = payload.%Get("systemPrompt", item.SystemPrompt)
+    set item.Temperature = payload.%Get("temperature", item.Temperature)
+    set item.MaxIterations = payload.%Get("maxIterations", item.MaxIterations)
+    set item.Policies = ##class(App.Governance.ClassUtil).ArrayToCSV(policies)
+    set item.Status = status
+    set item.Enabled = payload.%Get("enabled", item.Enabled)
+    set sc = item.%Save()
+    if $$$ISERR(sc) { trollback  quit sc }
+    set sc = ##class(App.Governance.AgentTool).SetForAgent(name, tools)
+    if $$$ISERR(sc) { trollback  quit sc }
+    tcommit
+    set result = ..OneJSON(item)
+    quit $$$OK
+}
+
 ClassMethod ValidateReferences(modelName As %String, tools As %DynamicArray,
     policies As %DynamicArray, requireApproved As %Boolean = 0) As %Status
 {

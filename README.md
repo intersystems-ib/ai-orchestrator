@@ -3,11 +3,13 @@
 MVP de gobierno y composición de agentes sobre el
 [ObjectScript SDK de InterSystems AI Hub](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk).
 La arquitectura Docker incluye IRIS, Web Gateway, una consola React servida
-por Nginx y un servidor local llama.cpp opcional.
+por Nginx y dos servidores locales llama.cpp opcionales.
 
 ## Capacidades
 
-- Catálogo gobernado de modelos y referencias a Config Store.
+- Catálogo gobernado de modelos con configuración de proveedor integrada.
+- Visualización y edición desde la consola de todos los datos de modelos,
+  agentes y tools, incluidas sus asignaciones dinámicas.
 - Descubrimiento de los métodos publicados por todas las clases de aplicación
   compiladas en el namespace que extienden `%AI.Tool`.
 - Selección dinámica de los métodos disponibles para cada agente.
@@ -25,6 +27,24 @@ por Nginx y un servidor local llama.cpp opcional.
   los métodos permitidos con `ToolManager.AddTool()` y configura sus policies.
 - Ciclo de vida `draft`, `approved`, `suspended` y `retired`.
 
+### Resumen funcional
+
+| Área | Características |
+|---|---|
+| Modelos | Catálogo de modelos comerciales y locales, conexión, aprobación y activación en una única entidad |
+| Agentes | Selección de modelo, system prompt, temperatura, máximo de iteraciones, tools y policies |
+| Tools | Descubrimiento de métodos publicados por clases que extienden `%AI.Tool` y asignación por agente |
+| Policies | Autorización obligatoria, descubrimiento y auditorías aplicables dinámicamente a cada tool |
+| Identidad | Autenticación JWT de IRIS, allow-list de usuarios y autorización usuario→agente |
+| Chat | Conversaciones y mensajes persistidos, selección de agente e invocación real mediante AI Hub |
+| Auditoría | Registro persistente de agente, tool, argumentos, resultado, duración y errores |
+| Demo | Inventario persistente, veinte registros de ejemplo, búsqueda iFind y tool `SearchInventory` |
+
+Toda la configuración funcional se resuelve en IRIS. Docker Compose únicamente
+define la infraestructura ejecutable —IRIS, Web Gateway, frontend y servidores
+LLM locales—; no es la fuente de configuración de modelos, agentes, tools,
+policies o autorizaciones.
+
 ```text
 clases %AI.Tool ──> %Discover() ──> catálogo IRIS
                                            │
@@ -37,9 +57,140 @@ modelo + configuración de agente ──────────┤
                                %AI.Agent + %AI.ToolManager
 ```
 
-El catálogo no almacena claves. `ConfigName` apunta a una configuración de AI
-Hub, por ejemplo `AI.LLM.OpenAI.Production`, y sus secretos deben residir en
-Secure Wallet usando referencias `secret://...`.
+## Configuración unificada de modelos
+
+`App.Governance.Model` es la única fuente de configuración funcional de cada
+modelo. El registro contiene:
+
+- identidad y nombre visible;
+- proveedor AI Hub;
+- identificador comercial o alias local del modelo;
+- configuración JSON de conexión;
+- estado de aprobación y activación.
+
+No se crea una segunda configuración persistente. El agente selecciona el
+modelo gobernado y añade únicamente su comportamiento: prompt, temperatura,
+iteraciones, tools y policies.
+
+El material secreto sigue perteneciendo a Secure Wallet. La configuración del
+modelo guarda referencias `secret://...`, nunca API keys o tokens en texto
+plano. Al materializar el agente, IRIS resuelve esas referencias sobre el JSON
+del propio modelo.
+
+La versión actual reconoce los siguientes proveedores y campos:
+
+| Provider ID | Proveedor | Campos de conexión contemplados |
+|---|---|---|
+| `openai` | OpenAI | `api_key`, `base_url`, `org_id` |
+| `anthropic` | Anthropic | `api_key`, `base_url`, `version` |
+| `gemini` | Google Gemini | `api_key` |
+| `bedrock` | AWS Bedrock | `region`, `bearer_token` |
+| `vertex` | Google Vertex | `project_id`, `region`, `service_account_path` |
+| `meta` | Meta Llama | `api_key` |
+| `nim` | NVIDIA NIM y endpoints OpenAI-compatible locales | `base_url`, `api_key` |
+| `xai` | xAI | `api_key` |
+| `deepseek` | DeepSeek | `api_key`, `base_url` |
+| `kimi` | Kimi / Moonshot AI | `api_key`, `base_url` |
+| `openrouter` | OpenRouter | `api_key`, `site_url`, `site_name`, `base_url` |
+| `ollama` | Ollama | `base_url` |
+
+La tabla refleja los campos que conoce el catálogo de esta versión. Los campos
+obligatorios concretos, URLs y mecanismos de credenciales dependen del
+proveedor y deben validarse contra la versión del SDK de AI Hub instalada.
+
+### Ejemplo: OpenAI
+
+El modelo se registra desde la consola o mediante `POST /api/app/models`:
+
+```json
+{
+  "name": "openai-production",
+  "displayName": "OpenAI producción",
+  "provider": "openai",
+  "modelId": "modelo-habilitado-en-la-cuenta",
+  "configuration": {
+    "api_key": "secret://openai-production-api-key",
+    "base_url": "https://api.openai.com/v1",
+    "org_id": "org-opcional"
+  },
+  "status": "approved",
+  "enabled": true
+}
+```
+
+### Ejemplo: Anthropic
+
+```json
+{
+  "name": "anthropic-production",
+  "displayName": "Anthropic producción",
+  "provider": "anthropic",
+  "modelId": "modelo-habilitado-en-la-cuenta",
+  "configuration": {
+    "api_key": "secret://anthropic-production-api-key",
+    "base_url": "https://api.anthropic.com",
+    "version": "version-soportada-por-el-proveedor"
+  },
+  "status": "approved",
+  "enabled": true
+}
+```
+
+### Modelos locales incluidos
+
+Los dos servidores llama.cpp del perfil `ai` exponen una API compatible con
+OpenAI dentro de la red de Docker. Los modelos se registran directamente con
+su configuración:
+
+```json
+{
+  "name": "llama-3.1-8b-instruct",
+  "provider": "nim",
+  "modelId": "llama-3.1-8b-instruct",
+  "configuration": {
+    "base_url": "http://llama:8000/v1",
+    "api_key": "not-needed"
+  }
+}
+```
+
+```json
+{
+  "name": "qwen3.5-9b",
+  "provider": "nim",
+  "modelId": "qwen3.5-9b",
+  "configuration": {
+    "base_url": "http://qwen:8000/v1",
+    "api_key": "not-needed"
+  }
+}
+```
+
+El puerto es `8000` porque la comunicación se realiza entre contenedores. Los
+puertos `8000` y `8001` publicados en el host se usan solamente para acceder a
+Llama y Qwen respectivamente desde fuera de la red Docker.
+
+Estos registros son datos del namespace y no forman parte de la imagen ni del
+bootstrap. En una base de datos nueva deben registrarse de nuevo desde la
+plataforma.
+
+### Resolución en tiempo de ejecución
+
+Al crear una sesión, `App.AIHub.AgentFactory`:
+
+1. carga el agente aprobado desde `App_Governance.Agent`;
+2. resuelve su modelo aprobado en `App_Governance.Model`;
+3. parsea la configuración JSON almacenada en el modelo;
+4. resuelve sus referencias `secret://` mediante una instancia transitoria de
+   `%ConfigStore.Configuration` y su método público `CopyDetails()`;
+5. crea el `%AI.Provider` indicado y ejecuta `ValidateConfig()`;
+6. configura el `%AI.Agent` y adjunta únicamente las tools y policies
+   autorizadas.
+
+La plataforma rechaza valores directos en `api_key` y `bearer_token`: deben ser
+referencias `secret://`, salvo el valor explícito `not-needed` de los modelos
+locales. Si un secreto no puede resolverse o `ValidateConfig()` falla, el
+agente no se materializa y la llamada se rechaza antes de iniciar el chat.
 
 ## Arranque
 
@@ -55,14 +206,14 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Para iniciar también el modelo Llama local:
+Para iniciar también los modelos locales:
 
 ```powershell
 docker compose --profile ai up -d --build
 ```
 
 El bootstrap sincroniza el catálogo de `%AI.Tool` y prepara los recursos
-técnicos de la plataforma. Los modelos, sus referencias de Config Store, los
+técnicos de la plataforma. Los modelos, su configuración de proveedor, los
 agentes y sus asignaciones se administran como datos persistentes en IRIS; no
 se crean desde clases ObjectScript con valores de configuración codificados.
 
@@ -128,8 +279,8 @@ implementación y la ejecución siguen perteneciendo a la clase `%AI.Tool` real.
 | `audit` | `%AI.Policy.Audit` | `SetAuditPolicy()` |
 | `discovery` | `%AI.Policy.Discovery` | `SetDiscoveryPolicy()` |
 
-Una vez configurado el Config Store del modelo, el agente se materializa por
-su nombre lógico:
+Una vez guardada la configuración del proveedor en `App.Governance.Model`, el
+agente se materializa por su nombre lógico:
 
 ```objectscript
 set sc = ##class(App.AIHub.AgentFactory).Create("nombre-del-agente", .agent)
@@ -178,10 +329,13 @@ plataforma y se almacenan en IRIS.
 | `POST` | `/api/app/chat` | Enviar un mensaje y continuar una conversación |
 | `GET` | `/api/app/providers` | Proveedores soportados |
 | `GET/POST` | `/api/app/models` | Catálogo de modelos |
+| `PUT` | `/api/app/models/:modelName` | Actualizar configuración y ciclo de vida de un modelo |
 | `GET` | `/api/app/tools` | Métodos `%AI.Tool` descubiertos |
+| `PUT` | `/api/app/tools/:toolName` | Actualizar gobierno, metadatos y auditorías de una tool |
 | `POST` | `/api/app/tools/sync` | Sincronizar el catálogo del namespace |
 | `GET/POST` | `/api/app/policies` | Policies registradas por tipo |
 | `GET/POST` | `/api/app/agents` | Definiciones de agentes |
+| `PUT` | `/api/app/agents/:agentName` | Actualizar modelo, parámetros, tools y policies de un agente |
 | `GET/PUT` | `/api/app/agents/:agentName/tools` | Consultar o reemplazar la allow-list |
 | `GET` | `/api/app/agents/:agentName/catalog` | Catálogo efectivo entregado al agente |
 | `GET/PUT` | `/api/app/tools/:toolName/policies` | Auditorías asignadas a una tool |

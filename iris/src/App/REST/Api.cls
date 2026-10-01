@@ -2,6 +2,9 @@ Class App.REST.Api Extends %CSP.REST
 {
 
 Parameter HandleCorsRequest = 1;
+Parameter CHARSET = "utf-8";
+Parameter CONTENTTYPE = "application/json";
+Parameter CONVERTINPUTSTREAM = 1;
 
 XData UrlMap
 {
@@ -14,13 +17,16 @@ XData UrlMap
   <Route Url="/providers" Method="GET" Call="Providers" />
   <Route Url="/models" Method="GET" Call="ListModels" />
   <Route Url="/models" Method="POST" Call="CreateModel" />
+  <Route Url="/models/:modelName" Method="PUT" Call="UpdateModel" />
   <Route Url="/tools" Method="GET" Call="ListTools" />
   <Route Url="/tools/sync" Method="POST" Call="SynchronizeTools" />
+  <Route Url="/tools/:toolName" Method="PUT" Call="UpdateTool" />
   <Route Url="/policies" Method="GET" Call="ListPolicies" />
   <Route Url="/policies" Method="POST" Call="CreatePolicy" />
   <Route Url="/agents" Method="GET" Call="ListAgents" />
   <Route Url="/my-agents" Method="GET" Call="ListMyAgents" />
   <Route Url="/agents" Method="POST" Call="CreateAgent" />
+  <Route Url="/agents/:agentName" Method="PUT" Call="UpdateAgent" />
   <Route Url="/agents/:agentName/tools" Method="GET" Call="GetAgentTools" />
   <Route Url="/agents/:agentName/tools" Method="PUT" Call="SetAgentTools" />
   <Route Url="/agents/:agentName/catalog" Method="GET" Call="GetAgentCatalog" />
@@ -116,6 +122,11 @@ ClassMethod CreateModel() As %Status
     quit $$$OK
 }
 
+ClassMethod UpdateModel(modelName As %String) As %Status
+{
+    quit ..UpdateResource("App.Governance.Model", modelName)
+}
+
 ClassMethod ListTools() As %Status
 {
     do ..WriteJSON(##class(App.Governance.Tool).ListJSON())
@@ -131,6 +142,11 @@ ClassMethod SynchronizeTools() As %Status
     }
     do ..WriteJSON(result)
     quit $$$OK
+}
+
+ClassMethod UpdateTool(toolName As %String) As %Status
+{
+    quit ..UpdateResource("App.Governance.Tool", toolName)
 }
 
 ClassMethod ListPolicies() As %Status
@@ -163,6 +179,11 @@ ClassMethod ListMyAgents() As %Status
 ClassMethod CreateAgent() As %Status
 {
     quit ..CreateResource("App.Governance.Agent")
+}
+
+ClassMethod UpdateAgent(agentName As %String) As %Status
+{
+    quit ..UpdateResource("App.Governance.Agent", agentName)
 }
 
 ClassMethod GetAgentTools(agentName As %String) As %Status
@@ -250,10 +271,23 @@ ClassMethod CreateResource(className As %String) As %Status [ Internal, Private 
     quit $$$OK
 }
 
+ClassMethod UpdateResource(className As %String, name As %String) As %Status [ Internal, Private ]
+{
+    set payload = {}.%FromJSON(%request.Content)
+    set sc = $classmethod(className, "Update", name, payload, .result)
+    if $$$ISERR(sc) {
+        do ..WriteError(sc, 400)
+        quit $$$OK
+    }
+    do ..WriteJSON(result)
+    quit $$$OK
+}
+
 ClassMethod WriteJSON(body As %DynamicAbstractObject, status As %Integer = 200)
 {
     set %response.Status = status
-    set %response.ContentType = "application/json; charset=utf-8"
+    set %response.ContentType = "application/json"
+    set %response.CharSet = "utf-8"
     write body.%ToJSON()
 }
 

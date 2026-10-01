@@ -160,4 +160,44 @@ ClassMethod ListJSON() As %DynamicArray
     quit output
 }
 
+ClassMethod Update(name As %String, payload As %DynamicObject,
+    Output result As %DynamicObject) As %Status
+{
+    set rs = ##class(%SQL.Statement).%ExecDirect(,
+        "SELECT ID FROM App_Governance.Tool WHERE Name = ?", name)
+    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Tool does not exist: " _ name)
+    set item = ..%OpenId(rs.%Get("ID"))
+
+    if payload.%Get("className", item.ClassName) '= item.ClassName {
+        quit $$$ERROR($$$GeneralError, "The discovered tool class cannot be changed")
+    }
+    if payload.%Get("methodName", item.MethodName) '= item.MethodName {
+        quit $$$ERROR($$$GeneralError, "The discovered tool method cannot be changed")
+    }
+    set policies = payload.%Get("auditPolicies", ##class(App.Governance.ToolPolicy).ListForTool(name))
+
+    tstart
+    set item.Description = payload.%Get("description", item.Description)
+    set item.RequiresApproval = payload.%Get("requiresApproval", item.RequiresApproval)
+    set item.Status = payload.%Get("status", item.Status)
+    set item.Enabled = payload.%Get("enabled", item.Enabled)
+    set sc = item.%Save()
+    if $$$ISERR(sc) { trollback  quit sc }
+    set sc = ##class(App.Governance.ToolPolicy).SetForTool(name, policies)
+    if $$$ISERR(sc) { trollback  quit sc }
+    tcommit
+    set result = {
+        "id":(item.%Id()), "name":(item.Name),
+        "className":(item.ClassName), "methodName":(item.MethodName),
+        "description":(item.Description),
+        "requiresApproval":(item.RequiresApproval),
+        "schema":(item.DescriptorJSON),
+        "auditPolicies":(##class(App.Governance.ToolPolicy).ListForTool(item.Name)),
+        "status":(item.Status), "enabled":(item.Enabled),
+        "createdAt":(item.CreatedAt)
+    }
+    quit $$$OK
+}
+
 }
