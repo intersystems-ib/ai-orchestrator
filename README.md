@@ -254,7 +254,8 @@ descriptor de cada método público mediante `%Discover()`; ese mismo descriptor
 es el que se almacena y presenta en la consola.
 
 El ejemplo `App.Demo.InventoryTools` publica `SearchInventory`, que consulta la
-tabla persistente de `App.Demo.Inventory`:
+tabla persistente de `App.Demo.Inventory`, y `AddInventoryItem`, que registra un
+nuevo producto indicando nombre, SKU o referencia única y cantidad inicial.
 
 `Inventory.Name` dispone del índice full-text `NameSearchIndex`, definido como
 `%iFind.Index.Basic` para español, minúsculas y stemming. El bootstrap construye
@@ -276,6 +277,13 @@ Method SearchInventory(
 }
 }
 ```
+
+`AddInventoryItem(name, sku, quantity)` crea un producto cuando el nombre no
+existe. Si encuentra una coincidencia exacta por nombre, suma `quantity` al
+stock existente y conserva el SKU almacenado, aunque la llamada contenga otra
+referencia. Para las altas nuevas rechaza referencias vacías o duplicadas; en
+todos los casos rechaza nombres vacíos y cantidades negativas. Como cualquier
+otra tool, debe asignarse explícitamente a los agentes que puedan utilizarla.
 
 El dominio de demostración incluye además `App.Demo.Shipment` y
 `App.Demo.ShipmentProduct`. El bootstrap crea ocho envíos y 23 líneas asociadas
