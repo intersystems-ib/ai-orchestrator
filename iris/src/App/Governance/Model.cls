@@ -5,8 +5,19 @@ Property Name As %String(MAXLEN = 120) [ Required ];
 Property DisplayName As %String(MAXLEN = 200) [ Required ];
 Property Provider As %String(MAXLEN = 40) [ Required ];
 Property ModelId As %String(MAXLEN = 200) [ Required ];
-/// Provider connection details. Secret values must be Secure Wallet references.
-Property Configuration As %String(MAXLEN = "");
+
+/// Typed provider connection fields. Secrets contain Secure Wallet references.
+Property ApiKey As %String(MAXLEN = 2048);
+Property BaseUrl As %String(MAXLEN = 2048);
+Property OrgId As %String(MAXLEN = 240);
+Property Version As %String(MAXLEN = 120);
+Property Region As %String(MAXLEN = 120);
+Property BearerToken As %String(MAXLEN = 2048);
+Property ProjectId As %String(MAXLEN = 240);
+Property ServiceAccountPath As %String(MAXLEN = 2048);
+Property SiteUrl As %String(MAXLEN = 2048);
+Property SiteName As %String(MAXLEN = 240);
+
 Property Status As %String(VALUELIST = ",draft,approved,suspended,retired") [ InitialExpression = "draft" ];
 Property Enabled As %Boolean [ InitialExpression = 1 ];
 Property CreatedAt As %TimeStamp;
@@ -24,13 +35,7 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     if '##class(App.Governance.Catalog).IsProviderSupported(provider) {
         quit $$$ERROR($$$GeneralError, "Unsupported AI Hub provider: " _ provider)
     }
-    set configuration = payload.%Get("configuration", {})
-    if '$isobject(configuration) {
-        quit $$$ERROR($$$GeneralError, "configuration must be a JSON object")
-    }
-    do configuration.%Set("model_provider", provider)
-    do configuration.%Set("model", modelId)
-    set sc = ..ValidateSecrets(configuration)
+    set sc = ..ValidateSecrets(payload.%Get("apiKey", ""), payload.%Get("bearerToken", ""))
     if $$$ISERR(sc) quit sc
 
     set model = ..%New()
@@ -38,13 +43,12 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set model.DisplayName = payload.%Get("displayName", name)
     set model.Provider = provider
     set model.ModelId = modelId
-    set model.Configuration = configuration.%ToJSON()
+    do ..SetProviderFields(model, payload)
     set model.Status = payload.%Get("status", "draft")
     set model.Enabled = payload.%Get("enabled", 1)
-    set model.CreatedAt = $ZDATETIME($HOROLOG, 3)
+    set model.CreatedAt = $zdatetime($horolog, 3)
     set sc = model.%Save()
     if $$$ISERR(sc) quit sc
-
     set result = ..OneJSON(model)
     quit $$$OK
 }
@@ -66,19 +70,13 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     if '##class(App.Governance.Catalog).IsProviderSupported(provider) {
         quit $$$ERROR($$$GeneralError, "Unsupported AI Hub provider: " _ provider)
     }
-    set configuration = payload.%Get("configuration", ..ConfigurationObject(model.Configuration))
-    if '$isobject(configuration) {
-        quit $$$ERROR($$$GeneralError, "configuration must be a JSON object")
-    }
-    do configuration.%Set("model_provider", provider)
-    do configuration.%Set("model", modelId)
-    set sc = ..ValidateSecrets(configuration)
+    set sc = ..ValidateSecrets(payload.%Get("apiKey", ""), payload.%Get("bearerToken", ""))
     if $$$ISERR(sc) quit sc
 
     set model.DisplayName = payload.%Get("displayName", model.DisplayName)
     set model.Provider = provider
     set model.ModelId = modelId
-    set model.Configuration = configuration.%ToJSON()
+    do ..SetProviderFields(model, payload)
     set model.Status = payload.%Get("status", model.Status)
     set model.Enabled = payload.%Get("enabled", model.Enabled)
     set sc = model.%Save()
@@ -87,52 +85,45 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     quit $$$OK
 }
 
-ClassMethod ValidateSecrets(configuration As %DynamicObject) As %Status [ Internal, Private ]
+ClassMethod SetProviderFields(model As App.Governance.Model,
+    payload As %DynamicObject) [ Internal, Private ]
 {
-    set sc = $$$OK
-    for index = 1:1:2 {
-        set key = $piece("api_key,bearer_token", ",", index)
-        set value = configuration.%Get(key, "")
-        if value = "" continue
-        if value = "not-needed" continue
-        if $extract(value, 1, 9) '= "secret://" {
-            set sc = $$$ERROR($$$GeneralError, key _ " must be a secret:// Secure Wallet reference")
-            quit
-        }
+    set model.ApiKey = payload.%Get("apiKey", "")
+    set model.BaseUrl = payload.%Get("baseUrl", "")
+    set model.OrgId = payload.%Get("orgId", "")
+    set model.Version = payload.%Get("version", "")
+    set model.Region = payload.%Get("region", "")
+    set model.BearerToken = payload.%Get("bearerToken", "")
+    set model.ProjectId = payload.%Get("projectId", "")
+    set model.ServiceAccountPath = payload.%Get("serviceAccountPath", "")
+    set model.SiteUrl = payload.%Get("siteUrl", "")
+    set model.SiteName = payload.%Get("siteName", "")
+}
+
+ClassMethod ValidateSecrets(apiKey As %String, bearerToken As %String) As %Status [ Internal, Private ]
+{
+    set sc = ..ValidateSecret(apiKey, "apiKey")
+    if $$$ISERR(sc) quit sc
+    quit ..ValidateSecret(bearerToken, "bearerToken")
+}
+
+ClassMethod ValidateSecret(value As %String, field As %String) As %Status [ Internal, Private ]
+{
+    if (value = "") || (value = "not-needed") quit $$$OK
+    if $extract(value, 1, 9) '= "secret://" {
+        quit $$$ERROR($$$GeneralError, field _ " must be a secret:// Secure Wallet reference")
     }
-    quit sc
+    quit $$$OK
 }
 
 ClassMethod ListJSON() As %DynamicArray
 {
     set output = []
     set rs = ##class(%SQL.Statement).%ExecDirect(,
-        "SELECT ID, Name, DisplayName, Provider, ModelId, Configuration, Status, Enabled, CreatedAt " _
-        "FROM App_Governance.Model ORDER BY Name")
+        "SELECT ID FROM App_Governance.Model ORDER BY Name")
     while rs.%Next() {
-        do output.%Push({
-            "id":(rs.%Get("ID")),
-            "name":(rs.%Get("Name")),
-            "displayName":(rs.%Get("DisplayName")),
-            "provider":(rs.%Get("Provider")),
-            "modelId":(rs.%Get("ModelId")),
-            "configuration":(..ConfigurationObject(rs.%Get("Configuration"))),
-            "status":(rs.%Get("Status")),
-            "enabled":(rs.%Get("Enabled")),
-            "createdAt":(rs.%Get("CreatedAt"))
-        })
-    }
-    quit output
-}
-
-ClassMethod ConfigurationObject(value As %String) As %DynamicObject [ Internal, Private ]
-{
-    set output = {}
-    if value = "" quit output
-    try {
-        set output = {}.%FromJSON(value)
-    } catch exception {
-        set output = {}
+        set model = ..%OpenId(rs.%Get("ID"))
+        do output.%Push(..OneJSON(model))
     }
     quit output
 }
@@ -142,12 +133,15 @@ ClassMethod OneJSON(model As App.Governance.Model) As %DynamicObject [ Internal,
     quit {
         "id":(model.%Id()), "name":(model.Name),
         "displayName":(model.DisplayName), "provider":(model.Provider),
-        "modelId":(model.ModelId),
-        "configuration":(..ConfigurationObject(model.Configuration)),
+        "modelId":(model.ModelId), "apiKey":(model.ApiKey),
+        "baseUrl":(model.BaseUrl), "orgId":(model.OrgId),
+        "version":(model.Version), "region":(model.Region),
+        "bearerToken":(model.BearerToken), "projectId":(model.ProjectId),
+        "serviceAccountPath":(model.ServiceAccountPath),
+        "siteUrl":(model.SiteUrl), "siteName":(model.SiteName),
         "status":(model.Status), "enabled":(model.Enabled),
         "createdAt":(model.CreatedAt)
     }
 }
 
 }
-

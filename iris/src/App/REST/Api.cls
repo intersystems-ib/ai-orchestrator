@@ -87,13 +87,10 @@ ClassMethod SetAIUser() As %Status
 ClassMethod Chat() As %Status
 {
     set payload = {}.%FromJSON(%request.Content)
-    set sc = ##class(App.AIHub.Policy.UserAccess).Check(
-        $username, payload.%Get("agentName", ""))
-    if $$$ISERR(sc) { do ..WriteError(sc, 403)  quit $$$OK }
-    set sc = ##class(App.AIHub.ChatService).Send(
+    set sc = ##class(App.Interop.Gateway).Send(
         payload.%Get("agentName", ""), payload.%Get("message", ""),
-        payload.%Get("conversationId", ""), $username, .result)
-    if $$$ISERR(sc) { do ..WriteError(sc, 502)  quit $$$OK }
+        payload.%Get("conversationId", ""), $username, "chat", .result, .httpStatus)
+    if $$$ISERR(sc) { do ..WriteError(sc, httpStatus)  quit $$$OK }
     do ..WriteJSON(result)
     quit $$$OK
 }
@@ -241,20 +238,14 @@ ClassMethod TestAgent(agentName As %String) As %Status
 {
     set payload = {}.%FromJSON(%request.Content)
     set prompt = payload.%Get("prompt", "Reply with exactly: configuration-ok")
-    set sc = ##class(App.AIHub.AgentFactory).Create(agentName, .agent)
-    if $$$ISOK(sc) {
-        try {
-            set session = agent.CreateSession()
-            set response = agent.Chat(session, prompt)
-            set result = {"agent":(agentName), "content":(response.Content)}
-        } catch exception {
-            set sc = exception.AsStatus()
-        }
-    }
+    set sc = ##class(App.Interop.Gateway).Send(
+        agentName, prompt, "", $username, "test", .chatResult, .httpStatus)
     if $$$ISERR(sc) {
-        do ..WriteError(sc, 502)
+        do ..WriteError(sc, httpStatus)
         quit $$$OK
     }
+    set result = {"agent":(agentName), "content":(chatResult.content),
+        "requestId":(chatResult.requestId)}
     do ..WriteJSON(result)
     quit $$$OK
 }

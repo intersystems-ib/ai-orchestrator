@@ -15,6 +15,8 @@ por Nginx y dos servidores locales llama.cpp opcionales.
 - Selección dinámica de los métodos disponibles para cada agente.
 - Chat multi-turno para probar cualquier agente aprobado, con sesiones y
   mensajes persistidos en IRIS.
+- Enrutamiento obligatorio de cada inferencia por una producción de
+  interoperabilidad, conservando petición y respuesta en el Message Bank.
 - Allow-list de usuarios IRIS y policy `%AI.Policy.Authorization` obligatoria
   tanto para iniciar chats como para descubrir o ejecutar tools.
 - Registro de policies de autorización, auditoría y descubrimiento, validando
@@ -38,7 +40,7 @@ por Nginx y dos servidores locales llama.cpp opcionales.
 | Identidad | Autenticación JWT de IRIS, allow-list de usuarios y autorización usuario→agente |
 | Chat | Conversaciones y mensajes persistidos, selección de agente e invocación real mediante AI Hub |
 | Auditoría | Registro persistente de agente, tool, argumentos, resultado, duración y errores |
-| Demo | Inventario persistente, veinte registros de ejemplo, búsqueda iFind y tool `SearchInventory` |
+| Demo | Inventario, envíos y líneas de producto persistentes; búsqueda iFind y tres tools de consulta |
 
 Toda la configuración funcional se resuelve en IRIS. Docker Compose únicamente
 define la infraestructura ejecutable —IRIS, Web Gateway, frontend y servidores
@@ -54,8 +56,30 @@ clases %AI.Tool ──> %Discover() ──> catálogo IRIS
                                            │
 modelo + configuración de agente ──────────┤
                                            ▼
-                               %AI.Agent + %AI.ToolManager
+API REST ──> Business Service ──> Business Operation ──> %AI.Agent
+                │                       │                      │
+                └──── mensajes IRIS ────┴──── tools/policies ─┘
 ```
+
+## Producción de interoperabilidad
+
+`App.Interop.Production` es la ruta obligatoria para cualquier llamada a un
+LLM. La API crea un `App.Interop.Message.ChatRequest` y lo entrega de forma
+síncrona al Business Service `AI Governance API Service`. Este reenvía el
+mensaje al Business Operation `AI Hub LLM Operation`, único componente que
+materializa y ejecuta el agente mediante AI Hub.
+
+IRIS persiste las cabeceras y los cuerpos de petición y respuesta en el Message
+Bank. Cada petición incorpora un `RequestId`, usuario JWT, agente, conversación,
+propósito y fecha. La respuesta conserva estado, error, duración y resultado.
+Ese mismo `RequestId` se propaga a los mensajes funcionales del chat y a las
+auditorías de tools, permitiendo correlacionar los niveles HTTP,
+interoperabilidad, agente y herramienta.
+
+La identidad no se obtiene de `$username` dentro de la operación: el sujeto JWT
+validado por la API viaja explícitamente en el mensaje y se instala en el
+contexto local del job antes de aplicar las policies. La producción queda
+configurada para arranque automático durante el bootstrap.
 
 ## Configuración unificada de modelos
 
@@ -65,7 +89,7 @@ modelo. El registro contiene:
 - identidad y nombre visible;
 - proveedor AI Hub;
 - identificador comercial o alias local del modelo;
-- configuración JSON de conexión;
+- propiedades tipadas de conexión (`ApiKey`, `BaseUrl`, `Region`, etc.);
 - estado de aprobación y activación.
 
 No se crea una segunda configuración persistente. El agente selecciona el
@@ -74,25 +98,24 @@ iteraciones, tools y policies.
 
 El material secreto sigue perteneciendo a Secure Wallet. La configuración del
 modelo guarda referencias `secret://...`, nunca API keys o tokens en texto
-plano. Al materializar el agente, IRIS resuelve esas referencias sobre el JSON
-del propio modelo.
+plano. Al materializar el agente, IRIS resuelve directamente esas propiedades.
 
 La versión actual reconoce los siguientes proveedores y campos:
 
 | Provider ID | Proveedor | Campos de conexión contemplados |
 |---|---|---|
-| `openai` | OpenAI | `api_key`, `base_url`, `org_id` |
-| `anthropic` | Anthropic | `api_key`, `base_url`, `version` |
-| `gemini` | Google Gemini | `api_key` |
-| `bedrock` | AWS Bedrock | `region`, `bearer_token` |
-| `vertex` | Google Vertex | `project_id`, `region`, `service_account_path` |
-| `meta` | Meta Llama | `api_key` |
-| `nim` | NVIDIA NIM y endpoints OpenAI-compatible locales | `base_url`, `api_key` |
-| `xai` | xAI | `api_key` |
-| `deepseek` | DeepSeek | `api_key`, `base_url` |
-| `kimi` | Kimi / Moonshot AI | `api_key`, `base_url` |
-| `openrouter` | OpenRouter | `api_key`, `site_url`, `site_name`, `base_url` |
-| `ollama` | Ollama | `base_url` |
+| `openai` | OpenAI | `apiKey`, `baseUrl`, `orgId` |
+| `anthropic` | Anthropic | `apiKey`, `baseUrl`, `version` |
+| `gemini` | Google Gemini | `apiKey` |
+| `bedrock` | AWS Bedrock | `region`, `bearerToken` |
+| `vertex` | Google Vertex | `projectId`, `region`, `serviceAccountPath` |
+| `meta` | Meta Llama | `apiKey` |
+| `nim` | NVIDIA NIM y endpoints OpenAI-compatible locales | `baseUrl`, `apiKey` |
+| `xai` | xAI | `apiKey` |
+| `deepseek` | DeepSeek | `apiKey`, `baseUrl` |
+| `kimi` | Kimi / Moonshot AI | `apiKey`, `baseUrl` |
+| `openrouter` | OpenRouter | `apiKey`, `siteUrl`, `siteName`, `baseUrl` |
+| `ollama` | Ollama | `baseUrl` |
 
 La tabla refleja los campos que conoce el catálogo de esta versión. Los campos
 obligatorios concretos, URLs y mecanismos de credenciales dependen del
@@ -108,11 +131,9 @@ El modelo se registra desde la consola o mediante `POST /api/app/models`:
   "displayName": "OpenAI producción",
   "provider": "openai",
   "modelId": "modelo-habilitado-en-la-cuenta",
-  "configuration": {
-    "api_key": "secret://openai-production-api-key",
-    "base_url": "https://api.openai.com/v1",
-    "org_id": "org-opcional"
-  },
+  "apiKey": "secret://openai-production-api-key",
+  "baseUrl": "https://api.openai.com/v1",
+  "orgId": "org-opcional",
   "status": "approved",
   "enabled": true
 }
@@ -126,11 +147,9 @@ El modelo se registra desde la consola o mediante `POST /api/app/models`:
   "displayName": "Anthropic producción",
   "provider": "anthropic",
   "modelId": "modelo-habilitado-en-la-cuenta",
-  "configuration": {
-    "api_key": "secret://anthropic-production-api-key",
-    "base_url": "https://api.anthropic.com",
-    "version": "version-soportada-por-el-proveedor"
-  },
+  "apiKey": "secret://anthropic-production-api-key",
+  "baseUrl": "https://api.anthropic.com",
+  "version": "version-soportada-por-el-proveedor",
   "status": "approved",
   "enabled": true
 }
@@ -147,10 +166,8 @@ su configuración:
   "name": "llama-3.1-8b-instruct",
   "provider": "nim",
   "modelId": "llama-3.1-8b-instruct",
-  "configuration": {
-    "base_url": "http://llama:8000/v1",
-    "api_key": "not-needed"
-  }
+  "baseUrl": "http://llama:8000/v1",
+  "apiKey": "not-needed"
 }
 ```
 
@@ -159,10 +176,8 @@ su configuración:
   "name": "qwen3.5-9b",
   "provider": "nim",
   "modelId": "qwen3.5-9b",
-  "configuration": {
-    "base_url": "http://qwen:8000/v1",
-    "api_key": "not-needed"
-  }
+  "baseUrl": "http://qwen:8000/v1",
+  "apiKey": "not-needed"
 }
 ```
 
@@ -180,14 +195,14 @@ Al crear una sesión, `App.AIHub.AgentFactory`:
 
 1. carga el agente aprobado desde `App_Governance.Agent`;
 2. resuelve su modelo aprobado en `App_Governance.Model`;
-3. parsea la configuración JSON almacenada en el modelo;
+3. construye la configuración del SDK desde las propiedades tipadas del modelo;
 4. resuelve sus referencias `secret://` mediante una instancia transitoria de
    `%ConfigStore.Configuration` y su método público `CopyDetails()`;
 5. crea el `%AI.Provider` indicado y ejecuta `ValidateConfig()`;
 6. configura el `%AI.Agent` y adjunta únicamente las tools y policies
    autorizadas.
 
-La plataforma rechaza valores directos en `api_key` y `bearer_token`: deben ser
+La plataforma rechaza valores directos en `ApiKey` y `BearerToken`: deben ser
 referencias `secret://`, salvo el valor explícito `not-needed` de los modelos
 locales. Si un secreto no puede resolverse o `ValidateConfig()` falla, el
 agente no se materializa y la llamada se rechaza antes de iniciar el chat.
@@ -261,6 +276,21 @@ Method SearchInventory(
 }
 }
 ```
+
+El dominio de demostración incluye además `App.Demo.Shipment` y
+`App.Demo.ShipmentProduct`. El bootstrap crea ocho envíos y 23 líneas asociadas
+a los productos del inventario. Cada envío conserva referencia, cliente, fecha
+de envío, fecha de recepción e importe total; cada línea conserva producto,
+cantidad e importe total del producto.
+
+`App.Demo.ShipmentTools` publica:
+
+- `SearchShipmentsByProduct(productId)`, que devuelve todos los envíos que
+  contienen el ID de producto indicado;
+- `SearchShipmentsByDateRange(startDate, endDate)`, que filtra inclusivamente
+  por fecha de envío. Si `startDate` está vacío solo aplica `<= endDate`; si
+  `endDate` está vacío solo aplica `>= startDate`; si ambos están vacíos devuelve
+  todos los envíos. Las fechas usan el formato `YYYY-MM-DD`.
 
 `POST /api/app/tools/sync` vuelve a inspeccionar las clases compiladas. Los
 métodos nuevos se incorporan aprobados y habilitados; los que han desaparecido
@@ -349,6 +379,7 @@ iris/src/App/Governance/       # modelo persistente y validaciones
 iris/src/App/REST/             # API administrativa
 iris/src/App/Demo/             # modelo y %AI.Tool de ejemplo
 iris/src/App/AIHub/            # policies, adaptador y factoría AI Hub
+iris/src/App/Interop/          # producción, mensajes, service y operation
 frontend/src/                  # consola React
 webgateway/shared/             # configuración del Gateway
 ```

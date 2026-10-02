@@ -19,13 +19,15 @@ ClassMethod Check(username As %String = "", agentName As %String = "") As %Statu
 Method %CanList(tool As %String, metadata As %DynamicObject) As %Boolean
 {
     quit ##class(App.Governance.AgentUser).IsAuthorized(
-        $username, ##class(App.AIHub.RuntimeContext).GetAgent())
+        ##class(App.AIHub.RuntimeContext).GetUsername(),
+        ##class(App.AIHub.RuntimeContext).GetAgent())
 }
 
 Method %CanExecute(tool As %String, call As %DynamicObject,
     metadata As %DynamicObject) As %Status
 {
-    quit ..Check($username, ##class(App.AIHub.RuntimeContext).GetAgent())
+    quit ..Check(##class(App.AIHub.RuntimeContext).GetUsername(),
+        ##class(App.AIHub.RuntimeContext).GetAgent())
 }
 
 }

@@ -57,6 +57,10 @@ ClassMethod Seed() As %Status
     set sc = ##class(App.Demo.Inventory).%BuildIndices(
         $listbuild("NameSearchIndex"))
     if $$$ISERR(sc) quit sc
+    set sc = ##class(App.Demo.Shipment).SeedDemo(.createdShipments)
+    if $$$ISERR(sc) quit sc
+    set sc = ##class(Ens.Director).SetAutoStart("App.Interop.Production")
+    if $$$ISERR(sc) quit sc
     quit $$$OK
 }
 

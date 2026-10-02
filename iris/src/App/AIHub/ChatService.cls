@@ -56,14 +56,17 @@ ClassMethod Send(agentName As %String, message As %String,
     set conversation.UpdatedAt = $zdatetime($horolog, 3)
     set sc = conversation.%Save()
     if $$$ISERR(sc) { trollback  quit sc }
-    set sc = ##class(App.Governance.ChatMessage).Add(conversationId, "user", message)
+    set requestId = ##class(App.AIHub.RuntimeContext).GetRequestId()
+    set sc = ##class(App.Governance.ChatMessage).Add(
+        conversationId, "user", message, requestId)
     if $$$ISERR(sc) { trollback  quit sc }
-    set sc = ##class(App.Governance.ChatMessage).Add(conversationId, "assistant", content)
+    set sc = ##class(App.Governance.ChatMessage).Add(
+        conversationId, "assistant", content, requestId)
     if $$$ISERR(sc) { trollback  quit sc }
     tcommit
 
     set result = {
-        "conversationId":(conversationId), "agentName":(agentName),
+        "requestId":(requestId), "conversationId":(conversationId), "agentName":(agentName),
         "username":(username), "content":(content),
         "messages":(##class(App.Governance.ChatMessage).ListJSON(conversationId))
     }
