@@ -400,6 +400,7 @@ iris/src/App/Demo/             # modelo y %AI.Tool de ejemplo
 iris/src/App/AIHub/            # policies, adaptador y factoría AI Hub
 iris/src/App/Interop/          # producción, mensajes, service y operation
 frontend/src/                  # consola React
+  i18n.tsx                     # catálogos español/inglés y contexto de idioma
 webgateway/shared/             # configuración del Gateway
 ```
 
@@ -415,3 +416,16 @@ npm run dev
 ```
 
 Vite redirige `/api/app` a `http://localhost:8080`.
+
+### Internacionalización del frontend
+
+La consola React está disponible en español e inglés. Inicialmente adopta el
+idioma del navegador y guarda la selección explícita en la clave
+`ai-governance-language` de `localStorage`. El selector está disponible tanto
+en la pantalla de login como en la cabecera autenticada; el cambio actualiza
+toda la interfaz inmediatamente y establece el atributo `lang` del documento.
+
+Las traducciones y la interpolación están centralizadas en
+`frontend/src/i18n.tsx`. Los valores de dominio devueltos por IRIS —como los
+nombres o descripciones de modelos, agentes, policies y tools— se muestran tal
+como están almacenados y no son traducidos por el cliente.

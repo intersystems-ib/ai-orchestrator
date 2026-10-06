@@ -390,6 +390,7 @@ iris/src/App/Demo/             # sample domain model and %AI.Tool classes
 iris/src/App/AIHub/            # policies, adapter, and AI Hub factory
 iris/src/App/Interop/          # production, messages, service, and operation
 frontend/src/                  # React console
+  i18n.tsx                     # Spanish/English catalogs and language context
 webgateway/shared/             # Web Gateway configuration
 ```
 
@@ -405,3 +406,16 @@ npm run dev
 ```
 
 Vite proxies `/api/app` to `http://localhost:8080`.
+
+### Frontend internationalization
+
+The React console is available in English and Spanish. It initially follows
+the browser language and stores the explicit selection under
+`ai-governance-language` in `localStorage`. The selector is available both on
+the login screen and in the authenticated header; changing it updates the
+whole interface immediately and sets the document's `lang` attribute.
+
+Translations and interpolation are centralized in `frontend/src/i18n.tsx`.
+Domain values returned by IRIS—such as model, agent, policy, and tool names or
+descriptions—are deliberately presented as stored and are not translated by
+the client.
