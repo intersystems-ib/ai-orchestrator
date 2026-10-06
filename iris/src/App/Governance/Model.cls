@@ -6,18 +6,6 @@ Property DisplayName As %String(MAXLEN = 200) [ Required ];
 Property Provider As %String(MAXLEN = 40) [ Required ];
 Property ModelId As %String(MAXLEN = 200) [ Required ];
 
-/// Typed provider connection fields. Secrets contain Secure Wallet references.
-Property ApiKey As %String(MAXLEN = 2048);
-Property BaseUrl As %String(MAXLEN = 2048);
-Property OrgId As %String(MAXLEN = 240);
-Property Version As %String(MAXLEN = 120);
-Property Region As %String(MAXLEN = 120);
-Property BearerToken As %String(MAXLEN = 2048);
-Property ProjectId As %String(MAXLEN = 240);
-Property ServiceAccountPath As %String(MAXLEN = 2048);
-Property SiteUrl As %String(MAXLEN = 2048);
-Property SiteName As %String(MAXLEN = 240);
-
 Property Status As %String(VALUELIST = ",draft,approved,suspended,retired") [ InitialExpression = "draft" ];
 Property Enabled As %Boolean [ InitialExpression = 1 ];
 Property CreatedAt As %TimeStamp;
@@ -43,12 +31,16 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set model.DisplayName = payload.%Get("displayName", name)
     set model.Provider = provider
     set model.ModelId = modelId
-    do ..SetProviderFields(model, payload)
     set model.Status = payload.%Get("status", "draft")
     set model.Enabled = payload.%Get("enabled", 1)
     set model.CreatedAt = $zdatetime($horolog, 3)
+
+    tstart
     set sc = model.%Save()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) { trollback  quit sc }
+    set sc = ..SaveConfiguration(model, ..DetailsFromPayload(payload))
+    if $$$ISERR(sc) { trollback  quit sc }
+    tcommit
     set result = ..OneJSON(model)
     quit $$$OK
 }
@@ -76,28 +68,70 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     set model.DisplayName = payload.%Get("displayName", model.DisplayName)
     set model.Provider = provider
     set model.ModelId = modelId
-    do ..SetProviderFields(model, payload)
     set model.Status = payload.%Get("status", model.Status)
     set model.Enabled = payload.%Get("enabled", model.Enabled)
+
+    tstart
     set sc = model.%Save()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) { trollback  quit sc }
+    set sc = ..SaveConfiguration(model, ..DetailsFromPayload(payload))
+    if $$$ISERR(sc) { trollback  quit sc }
+    tcommit
     set result = ..OneJSON(model)
     quit $$$OK
 }
 
-ClassMethod SetProviderFields(model As App.Governance.Model,
-    payload As %DynamicObject) [ Internal, Private ]
+ClassMethod DetailsFromPayload(payload As %DynamicObject) As %DynamicObject [ Internal, Private ]
 {
-    set model.ApiKey = payload.%Get("apiKey", "")
-    set model.BaseUrl = payload.%Get("baseUrl", "")
-    set model.OrgId = payload.%Get("orgId", "")
-    set model.Version = payload.%Get("version", "")
-    set model.Region = payload.%Get("region", "")
-    set model.BearerToken = payload.%Get("bearerToken", "")
-    set model.ProjectId = payload.%Get("projectId", "")
-    set model.ServiceAccountPath = payload.%Get("serviceAccountPath", "")
-    set model.SiteUrl = payload.%Get("siteUrl", "")
-    set model.SiteName = payload.%Get("siteName", "")
+    set details = {}
+    do ..AddDetail(details, "api_key", payload.%Get("apiKey", ""))
+    do ..AddDetail(details, "base_url", payload.%Get("baseUrl", ""))
+    do ..AddDetail(details, "org_id", payload.%Get("orgId", ""))
+    do ..AddDetail(details, "version", payload.%Get("version", ""))
+    do ..AddDetail(details, "region", payload.%Get("region", ""))
+    do ..AddDetail(details, "bearer_token", payload.%Get("bearerToken", ""))
+    do ..AddDetail(details, "project_id", payload.%Get("projectId", ""))
+    do ..AddDetail(details, "service_account_path", payload.%Get("serviceAccountPath", ""))
+    do ..AddDetail(details, "site_url", payload.%Get("siteUrl", ""))
+    do ..AddDetail(details, "site_name", payload.%Get("siteName", ""))
+    quit details
+}
+
+ClassMethod AddDetail(details As %DynamicObject, key As %String,
+    value As %String) [ Internal, Private ]
+{
+    if value '= "" do details.%Set(key, value)
+}
+
+ClassMethod SaveConfiguration(model As App.Governance.Model,
+    details As %DynamicObject) As %Status [ Internal, Private ]
+{
+    set fqn = ..ConfigurationFQN(model.%Id())
+    if ##class(%ConfigStore.Configuration).Exists(fqn) {
+        set sc = ##class(%ConfigStore.Configuration).Get(fqn, .configuration)
+        if $$$ISERR(sc) quit sc
+        set configuration.Details = details
+        set configuration.DisplayName = model.DisplayName
+        set configuration.Description = "AI Hub model connection"
+        set configuration.Enabled = model.Enabled
+        quit configuration.SaveChange()
+    }
+    quit ##class(%ConfigStore.Configuration).Create(
+        "APP", "AI", "MODEL", "model-" _ model.%Id(), details,
+        model.DisplayName, "AI Hub model connection", "", "", model.Enabled)
+}
+
+ClassMethod ConfigurationFQN(modelId As %Integer) As %String
+{
+    quit ##class(%ConfigStore.Configuration).BuildFQN(
+        "APP", "AI", "MODEL", "model-" _ modelId)
+}
+
+ClassMethod GetConnectionDetails(modelId As %Integer,
+    Output details As %DynamicObject, resolveSecrets As %Boolean = 0) As %Status
+{
+    quit ##class(%ConfigStore.Configuration).GetDetails(
+        ..ConfigurationFQN(modelId), .details, 0, resolveSecrets)
 }
 
 ClassMethod ValidateSecrets(apiKey As %String, bearerToken As %String) As %Status [ Internal, Private ]
@@ -130,15 +164,20 @@ ClassMethod ListJSON() As %DynamicArray
 
 ClassMethod OneJSON(model As App.Governance.Model) As %DynamicObject [ Internal, Private ]
 {
+    set details = {}
+    set sc = ..GetConnectionDetails(model.%Id(), .storedDetails, 0)
+    if $$$ISOK(sc), $isobject(storedDetails) set details = storedDetails
     quit {
         "id":(model.%Id()), "name":(model.Name),
         "displayName":(model.DisplayName), "provider":(model.Provider),
-        "modelId":(model.ModelId), "apiKey":(model.ApiKey),
-        "baseUrl":(model.BaseUrl), "orgId":(model.OrgId),
-        "version":(model.Version), "region":(model.Region),
-        "bearerToken":(model.BearerToken), "projectId":(model.ProjectId),
-        "serviceAccountPath":(model.ServiceAccountPath),
-        "siteUrl":(model.SiteUrl), "siteName":(model.SiteName),
+        "modelId":(model.ModelId), "apiKey":(details.%Get("api_key", "")),
+        "baseUrl":(details.%Get("base_url", "")), "orgId":(details.%Get("org_id", "")),
+        "version":(details.%Get("version", "")), "region":(details.%Get("region", "")),
+        "bearerToken":(details.%Get("bearer_token", "")),
+        "projectId":(details.%Get("project_id", "")),
+        "serviceAccountPath":(details.%Get("service_account_path", "")),
+        "siteUrl":(details.%Get("site_url", "")),
+        "siteName":(details.%Get("site_name", "")),
         "status":(model.Status), "enabled":(model.Enabled),
         "createdAt":(model.CreatedAt)
     }

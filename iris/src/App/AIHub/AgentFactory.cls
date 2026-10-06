@@ -20,29 +20,17 @@ ClassMethod Create(agentName As %String, Output agent As %AI.Agent) As %Status
     set policies = rs.%Get("Policies")
 
     set model = ##class(%SQL.Statement).%ExecDirect(,
-        "SELECT Provider, ModelId, ApiKey, BaseUrl, OrgId, Version, Region, " _
-        "BearerToken, ProjectId, ServiceAccountPath, SiteUrl, SiteName " _
+        "SELECT ID, Provider, ModelId " _
         "FROM App_Governance.Model " _
         "WHERE Name = ? AND Status = 'approved' AND Enabled = 1", modelName)
     if model.%SQLCODE < 0 quit $$$ERROR($$$SQLError, model.%SQLCODE, model.%Message)
     if 'model.%Next() quit $$$ERROR($$$GeneralError, "The agent model is not approved and enabled")
 
-    set details = {"model_provider":(model.%Get("Provider")), "model":(model.%Get("ModelId"))}
-    do ..AddDetail(details, "api_key", model.%Get("ApiKey"))
-    do ..AddDetail(details, "base_url", model.%Get("BaseUrl"))
-    do ..AddDetail(details, "org_id", model.%Get("OrgId"))
-    do ..AddDetail(details, "version", model.%Get("Version"))
-    do ..AddDetail(details, "region", model.%Get("Region"))
-    do ..AddDetail(details, "bearer_token", model.%Get("BearerToken"))
-    do ..AddDetail(details, "project_id", model.%Get("ProjectId"))
-    do ..AddDetail(details, "service_account_path", model.%Get("ServiceAccountPath"))
-    do ..AddDetail(details, "site_url", model.%Get("SiteUrl"))
-    do ..AddDetail(details, "site_name", model.%Get("SiteName"))
-    set secretResolver = ##class(%ConfigStore.Configuration).%New()
-    set secretResolver.Details = details
-    set sc = secretResolver.CopyDetails(.resolvedDetails, 1)
+    set sc = ##class(App.Governance.Model).GetConnectionDetails(
+        model.%Get("ID"), .details, 1)
     if $$$ISERR(sc) quit sc
-    set details = resolvedDetails
+    do details.%Set("model_provider", model.%Get("Provider"))
+    do details.%Set("model", model.%Get("ModelId"))
 
     set provider = ##class(%AI.Provider).Create(model.%Get("Provider"), details)
     if '$ISOBJECT(provider) quit $$$ERROR($$$GeneralError, "AI Hub could not create the provider")
@@ -64,12 +52,6 @@ ClassMethod Create(agentName As %String, Output agent As %AI.Agent) As %Status
     do agent.ToolManager.SetAuthPolicy(##class(App.AIHub.Policy.UserAccess).%New())
     do agent.ToolManager.SetAuditPolicy(##class(App.AIHub.Policy.DynamicAudit).%New())
     quit $$$OK
-}
-
-ClassMethod AddDetail(details As %DynamicObject, key As %String,
-    value As %String) [ Internal, Private ]
-{
-    if value '= "" do details.%Set(key, value)
 }
 
 ClassMethod AttachTools(agent As %AI.Agent, agentName As %String) As %Status [ Internal, Private ]

@@ -1,108 +1,116 @@
 # AI Governance Hub
 
-MVP de gobierno y composición de agentes sobre el
-[ObjectScript SDK de InterSystems AI Hub](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk).
-La arquitectura Docker incluye IRIS, Web Gateway, una consola React servida
-por Nginx y dos servidores locales llama.cpp opcionales.
+**English** | [Español](README_es.md)
 
-## Capacidades
+An MVP for governing and composing agents on top of the
+[InterSystems AI Hub ObjectScript SDK](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk).
+The Docker architecture includes IRIS, Web Gateway, a React console served by
+Nginx, and two optional local llama.cpp servers.
 
-- Catálogo gobernado de modelos con configuración de proveedor integrada.
-- Visualización y edición desde la consola de todos los datos de modelos,
-  agentes y tools, incluidas sus asignaciones dinámicas.
-- Descubrimiento de los métodos publicados por todas las clases de aplicación
-  compiladas en el namespace que extienden `%AI.Tool`.
-- Selección dinámica de los métodos disponibles para cada agente.
-- Chat multi-turno para probar cualquier agente aprobado, con sesiones y
-  mensajes persistidos en IRIS.
-- Enrutamiento obligatorio de cada inferencia por una producción de
-  interoperabilidad, conservando petición y respuesta en el Message Bank.
-- Allow-list de usuarios IRIS y policy `%AI.Policy.Authorization` obligatoria
-  tanto para iniciar chats como para descubrir o ejecutar tools.
-- Registro de policies de autorización, auditoría y descubrimiento, validando
-  el contrato nativo correspondiente de AI Hub.
-- Asignaciones agente→tool y tool→policy almacenadas íntegramente en IRIS y
-  modificables sin recompilar ObjectScript.
-- Auditoría persistente de llamadas a tools, con agente, argumentos, resultado,
-  duración y estado de ejecución.
-- Factoría que materializa cada definición como `%AI.Agent`, registra solamente
-  los métodos permitidos con `ToolManager.AddTool()` y configura sus policies.
-- Ciclo de vida `draft`, `approved`, `suspended` y `retired`.
+## Capabilities
 
-### Resumen funcional
+- Governed model catalog with integrated provider configuration.
+- Full model, agent, and tool data can be viewed and edited from the console,
+  including dynamic assignments.
+- Discovery of published methods from every compiled application class in the
+  namespace that extends `%AI.Tool`.
+- Dynamic selection of the methods available to each agent.
+- Multi-turn chat for testing any approved agent, with sessions and messages
+  persisted in IRIS.
+- Mandatory routing of every inference through an interoperability production,
+  retaining its request and response in the Message Bank.
+- IRIS user allow-list and mandatory `%AI.Policy.Authorization` policy for
+  starting chats and discovering or executing tools.
+- Authorization, audit, and discovery policy registration with validation
+  against the corresponding native AI Hub contracts.
+- Agent-to-tool and tool-to-policy assignments stored entirely in IRIS and
+  editable without recompiling ObjectScript.
+- Persistent tool-call audit trail including agent, arguments, result,
+  duration, and execution status.
+- A factory that materializes each definition as a `%AI.Agent`, registers only
+  allowed methods through `ToolManager.AddTool()`, and applies its policies.
+- `draft`, `approved`, `suspended`, and `retired` lifecycle states.
 
-| Área | Características |
+### Functional overview
+
+| Area | Features |
 |---|---|
-| Modelos | Catálogo de modelos comerciales y locales, conexión, aprobación y activación en una única entidad |
-| Agentes | Selección de modelo, system prompt, temperatura, máximo de iteraciones, tools y policies |
-| Tools | Descubrimiento de métodos publicados por clases que extienden `%AI.Tool` y asignación por agente |
-| Policies | Autorización obligatoria, descubrimiento y auditorías aplicables dinámicamente a cada tool |
-| Identidad | Autenticación JWT de IRIS, allow-list de usuarios y autorización usuario→agente |
-| Chat | Conversaciones y mensajes persistidos, selección de agente e invocación real mediante AI Hub |
-| Auditoría | Registro persistente de agente, tool, argumentos, resultado, duración y errores |
-| Demo | Inventario, envíos y líneas de producto persistentes; búsqueda iFind y tres tools de consulta |
+| Models | Commercial and local model catalog, secure connection settings, approval, and activation |
+| Agents | Model selection, system prompt, temperature, maximum iterations, tools, and policies |
+| Tools | Discovery of methods published by `%AI.Tool` classes and per-agent assignment |
+| Policies | Mandatory authorization, discovery rules, and audit policies dynamically applicable to each tool |
+| Identity | IRIS JWT authentication, user allow-list, and user-to-agent authorization |
+| Chat | Persistent conversations and messages, agent selection, and real AI Hub invocation |
+| Audit | Persistent agent, tool, argument, result, duration, correlation ID, and error records |
+| Demo | Persistent inventory, shipments, and product lines; iFind search, cumulative stock entry, and queries through four tools |
 
-Toda la configuración funcional se resuelve en IRIS. Docker Compose únicamente
-define la infraestructura ejecutable —IRIS, Web Gateway, frontend y servidores
-LLM locales—; no es la fuente de configuración de modelos, agentes, tools,
-policies o autorizaciones.
+All functional configuration is resolved inside IRIS. Docker Compose only
+defines executable infrastructure—IRIS, Web Gateway, the frontend, and local
+LLM servers. It is not the source of truth for models, agents, tools, policies,
+or authorizations.
 
 ```text
-clases %AI.Tool ──> %Discover() ──> catálogo IRIS
+%AI.Tool classes ──> %Discover() ──> IRIS catalog
                                            │
-                              asignación agente→método
+                                  agent-to-method assignment
                                            │
-                              asignación tool→audit policy
+                                  tool-to-audit-policy assignment
                                            │
-modelo + configuración de agente ──────────┤
+model + agent configuration ───────────────┤
                                            ▼
-API REST ──> Business Service ──> Business Operation ──> %AI.Agent
+REST API ──> Business Service ──> Business Operation ──> %AI.Agent
                 │                       │                      │
-                └──── mensajes IRIS ────┴──── tools/policies ─┘
+                └──── IRIS messages ────┴──── tools/policies ─┘
 ```
 
-## Producción de interoperabilidad
+## Interoperability production
 
-`App.Interop.Production` es la ruta obligatoria para cualquier llamada a un
-LLM. La API crea un `App.Interop.Message.ChatRequest` y lo entrega de forma
-síncrona al Business Service `AI Governance API Service`. Este reenvía el
-mensaje al Business Operation `AI Hub LLM Operation`, único componente que
-materializa y ejecuta el agente mediante AI Hub.
+`App.Interop.Production` is the mandatory path for every LLM call. The API
+creates an `App.Interop.Message.ChatRequest` and synchronously submits it to the
+`AI Governance API Service` Business Service. The service forwards the message
+to the `AI Hub LLM Operation` Business Operation, the only component allowed to
+materialize and execute an AI Hub agent.
 
-IRIS persiste las cabeceras y los cuerpos de petición y respuesta en el Message
-Bank. Cada petición incorpora un `RequestId`, usuario JWT, agente, conversación,
-propósito y fecha. La respuesta conserva estado, error, duración y resultado.
-Ese mismo `RequestId` se propaga a los mensajes funcionales del chat y a las
-auditorías de tools, permitiendo correlacionar los niveles HTTP,
-interoperabilidad, agente y herramienta.
+IRIS persists request and response headers and bodies in the Message Bank. Each
+request includes a `RequestId`, JWT user, agent, conversation, purpose, and
+timestamp. The response retains status, error, duration, and result. The same
+`RequestId` is propagated to functional chat messages and tool audit events,
+which correlates the HTTP, interoperability, agent, and tool layers.
 
-La identidad no se obtiene de `$username` dentro de la operación: el sujeto JWT
-validado por la API viaja explícitamente en el mensaje y se instala en el
-contexto local del job antes de aplicar las policies. La producción queda
-configurada para arranque automático durante el bootstrap.
+Identity is not obtained from `$username` inside the operation. The JWT subject
+validated by the API travels explicitly in the message and is installed in the
+job-local context before policies are evaluated. The production is configured
+for automatic startup during bootstrap.
 
-## Configuración unificada de modelos
+## Secure model configuration
 
-`App.Governance.Model` es la única fuente de configuración funcional de cada
-modelo. El registro contiene:
+`App.Governance.Model` stores only governed model metadata:
 
-- identidad y nombre visible;
-- proveedor AI Hub;
-- identificador comercial o alias local del modelo;
-- propiedades tipadas de conexión (`ApiKey`, `BaseUrl`, `Region`, etc.);
-- estado de aprobación y activación.
+- logical identity and display name;
+- AI Hub provider;
+- commercial model identifier or local alias;
+- approval and activation state.
 
-No se crea una segunda configuración persistente. El agente selecciona el
-modelo gobernado y añade únicamente su comportamiento: prompt, temperatura,
-iteraciones, tools y policies.
+Connection fields such as `apiKey`, `baseUrl`, and `region` are stored in
+`%ConfigStore.Configuration`, not as properties or columns of
+`App.Governance.Model`. Every record uses an internal, stable FQN in the form
+`APP.AI.MODEL.model-<id>`. This relationship is derived from the immutable model
+ID, so there is no `ConfigName` field or separate configuration for users to
+manage.
 
-El material secreto sigue perteneciendo a Secure Wallet. La configuración del
-modelo guarda referencias `secret://...`, nunca API keys o tokens en texto
-plano. Al materializar el agente, IRIS resuelve directamente esas propiedades.
+The API and form continue to expose the same typed fields. `Create`, `Update`,
+and `ListJSON` on `App.Governance.Model` transparently write and read Config
+Store. Agents only add their behavior—prompt, temperature, iterations, tools,
+and policies—to the selected governed model.
 
-La versión actual reconoce los siguientes proveedores y campos:
+Secret material remains in Secure Wallet. Config Store contains
+`secret://...` references, never plaintext API keys or tokens. When an agent is
+materialized, IRIS requests the connection details from Config Store with
+secret resolution enabled.
 
-| Provider ID | Proveedor | Campos de conexión contemplados |
+The current catalog supports these providers and fields:
+
+| Provider ID | Provider | Supported connection fields |
 |---|---|---|
 | `openai` | OpenAI | `apiKey`, `baseUrl`, `orgId` |
 | `anthropic` | Anthropic | `apiKey`, `baseUrl`, `version` |
@@ -110,56 +118,55 @@ La versión actual reconoce los siguientes proveedores y campos:
 | `bedrock` | AWS Bedrock | `region`, `bearerToken` |
 | `vertex` | Google Vertex | `projectId`, `region`, `serviceAccountPath` |
 | `meta` | Meta Llama | `apiKey` |
-| `nim` | NVIDIA NIM y endpoints OpenAI-compatible locales | `baseUrl`, `apiKey` |
+| `nim` | NVIDIA NIM and local OpenAI-compatible endpoints | `baseUrl`, `apiKey` |
 | `xai` | xAI | `apiKey` |
 | `deepseek` | DeepSeek | `apiKey`, `baseUrl` |
 | `kimi` | Kimi / Moonshot AI | `apiKey`, `baseUrl` |
 | `openrouter` | OpenRouter | `apiKey`, `siteUrl`, `siteName`, `baseUrl` |
 | `ollama` | Ollama | `baseUrl` |
 
-La tabla refleja los campos que conoce el catálogo de esta versión. Los campos
-obligatorios concretos, URLs y mecanismos de credenciales dependen del
-proveedor y deben validarse contra la versión del SDK de AI Hub instalada.
+This table reflects the fields known by the catalog in this version. Exact
+required fields, URLs, and credential mechanisms depend on the provider and
+must be checked against the installed AI Hub SDK version.
 
-### Ejemplo: OpenAI
+### OpenAI example
 
-El modelo se registra desde la consola o mediante `POST /api/app/models`:
+Register the model from the console or with `POST /api/app/models`:
 
 ```json
 {
   "name": "openai-production",
-  "displayName": "OpenAI producción",
+  "displayName": "OpenAI production",
   "provider": "openai",
-  "modelId": "modelo-habilitado-en-la-cuenta",
+  "modelId": "model-enabled-for-the-account",
   "apiKey": "secret://openai-production-api-key",
   "baseUrl": "https://api.openai.com/v1",
-  "orgId": "org-opcional",
+  "orgId": "optional-organization",
   "status": "approved",
   "enabled": true
 }
 ```
 
-### Ejemplo: Anthropic
+### Anthropic example
 
 ```json
 {
   "name": "anthropic-production",
-  "displayName": "Anthropic producción",
+  "displayName": "Anthropic production",
   "provider": "anthropic",
-  "modelId": "modelo-habilitado-en-la-cuenta",
+  "modelId": "model-enabled-for-the-account",
   "apiKey": "secret://anthropic-production-api-key",
   "baseUrl": "https://api.anthropic.com",
-  "version": "version-soportada-por-el-proveedor",
+  "version": "provider-supported-version",
   "status": "approved",
   "enabled": true
 }
 ```
 
-### Modelos locales incluidos
+### Included local models
 
-Los dos servidores llama.cpp del perfil `ai` exponen una API compatible con
-OpenAI dentro de la red de Docker. Los modelos se registran directamente con
-su configuración:
+The two llama.cpp servers in the `ai` profile expose an OpenAI-compatible API
+inside the Docker network. Register each model with its own configuration:
 
 ```json
 {
@@ -181,35 +188,32 @@ su configuración:
 }
 ```
 
-El puerto es `8000` porque la comunicación se realiza entre contenedores. Los
-puertos `8000` y `8001` publicados en el host se usan solamente para acceder a
-Llama y Qwen respectivamente desde fuera de la red Docker.
+Port `8000` is used for container-to-container communication. Host ports `8000`
+and `8001` expose Llama and Qwen respectively outside the Docker network.
 
-Estos registros son datos del namespace y no forman parte de la imagen ni del
-bootstrap. En una base de datos nueva deben registrarse de nuevo desde la
-plataforma.
+These records are namespace data and are not embedded in the image or
+bootstrap. They must be registered again from the platform in a new database.
 
-### Resolución en tiempo de ejecución
+### Runtime resolution
 
-Al crear una sesión, `App.AIHub.AgentFactory`:
+When creating a session, `App.AIHub.AgentFactory`:
 
-1. carga el agente aprobado desde `App_Governance.Agent`;
-2. resuelve su modelo aprobado en `App_Governance.Model`;
-3. construye la configuración del SDK desde las propiedades tipadas del modelo;
-4. resuelve sus referencias `secret://` mediante una instancia transitoria de
-   `%ConfigStore.Configuration` y su método público `CopyDetails()`;
-5. crea el `%AI.Provider` indicado y ejecuta `ValidateConfig()`;
-6. configura el `%AI.Agent` y adjunta únicamente las tools y policies
-   autorizadas.
+1. loads the approved agent from `App_Governance.Agent`;
+2. resolves its approved model in `App_Governance.Model`;
+3. obtains connection details associated with the model ID from
+   `%ConfigStore.Configuration`;
+4. asks Config Store to resolve `secret://` references;
+5. creates the requested `%AI.Provider` and runs `ValidateConfig()`;
+6. configures the `%AI.Agent` and attaches only authorized tools and policies.
 
-La plataforma rechaza valores directos en `ApiKey` y `BearerToken`: deben ser
-referencias `secret://`, salvo el valor explícito `not-needed` de los modelos
-locales. Si un secreto no puede resolverse o `ValidateConfig()` falla, el
-agente no se materializa y la llamada se rechaza antes de iniciar el chat.
+The platform rejects direct values in `ApiKey` and `BearerToken`; they must be
+`secret://` references, except for the explicit `not-needed` value used by local
+models. If a secret cannot be resolved or `ValidateConfig()` fails, the agent
+is not materialized and the call is rejected before chat begins.
 
-## Arranque
+## Startup
 
-La solución requiere la imagen de InterSystems IRIS con AI Hub configurada en
+The solution requires the InterSystems IRIS image with AI Hub configured in
 `docker-compose.yml`:
 
 ```text
@@ -221,51 +225,51 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Para iniciar también los modelos locales:
+To also start both local models:
 
 ```powershell
 docker compose --profile ai up -d --build
 ```
 
-El bootstrap sincroniza el catálogo de `%AI.Tool` y prepara los recursos
-técnicos de la plataforma. Los modelos, su configuración de proveedor, los
-agentes y sus asignaciones se administran como datos persistentes en IRIS; no
-se crean desde clases ObjectScript con valores de configuración codificados.
+Bootstrap synchronizes the `%AI.Tool` catalog and prepares the platform's
+technical resources. Models, provider configuration, agents, and assignments
+are managed as persistent IRIS data; ObjectScript classes do not contain
+hard-coded functional configuration values.
 
-El perfil `ai` inicia simultáneamente dos servidores OpenAI-compatible:
+The `ai` profile starts both OpenAI-compatible servers:
 
-- Llama en <http://localhost:8000>.
-- Qwen 3.5 9B en <http://localhost:8001>, cargando
-  `models/Qwen3.5-9B-Q5_K_M.gguf` y usando el alias `qwen3.5-9b`.
+- Llama at <http://localhost:8000>.
+- Qwen 3.5 9B at <http://localhost:8001>, loading
+  `models/Qwen3.5-9B-Q5_K_M.gguf` with alias `qwen3.5-9b`.
 
 - UI: <http://localhost:5173>
 - API: <http://localhost:8080/api/app/health>
-- Portal de IRIS: <http://localhost:52773/csp/sys/UtilHome.csp>
+- IRIS Management Portal: <http://localhost:52773/csp/sys/UtilHome.csp>
 
-La configuración de desarrollo usa el endpoint JWT nativo de IRIS. `POST
-/api/app/login` valida las credenciales Password y entrega los tokens de acceso
-y refresco. El usuario inicial es `CSPSystem/SYS`, con rol `%All`; sustituye
-estas credenciales por usuarios nominales antes de un despliegue compartido.
+The development configuration uses the native IRIS JWT endpoint. `POST
+/api/app/login` validates Password credentials and returns access and refresh
+tokens. The initial user is `CSPSystem/SYS` with the `%All` role; replace these
+credentials with named users before a shared deployment.
 
-## Tools nativas de AI Hub
+## Native AI Hub tools
 
-Una tool se implementa con una clase que extiende `%AI.Tool`. AI Hub genera el
-descriptor de cada método público mediante `%Discover()`; ese mismo descriptor
-es el que se almacena y presenta en la consola.
+A tool is implemented by a class extending `%AI.Tool`. AI Hub generates a
+descriptor for every public method through `%Discover()`; the same descriptor
+is stored and displayed in the console.
 
-El ejemplo `App.Demo.InventoryTools` publica `SearchInventory`, que consulta la
-tabla persistente de `App.Demo.Inventory`, y `AddInventoryItem`, que registra un
-nuevo producto indicando nombre, SKU o referencia única y cantidad inicial.
+`App.Demo.InventoryTools` publishes `SearchInventory`, which queries the
+persistent `App.Demo.Inventory` table, and `AddInventoryItem`, which registers
+a product from its name, unique SKU or reference, and initial quantity.
 
-`Inventory.Name` dispone del índice full-text `NameSearchIndex`, definido como
-`%iFind.Index.Basic` para español, minúsculas y stemming. El bootstrap construye
-el índice después de sembrar los datos de demostración.
+`Inventory.Name` has a full-text `NameSearchIndex` defined as an
+`%iFind.Index.Basic` index with Spanish language processing, lowercase
+normalization, and stemming. Bootstrap builds it after seeding demo data.
 
 ```objectscript
 Class App.Demo.InventoryTools Extends %AI.Tool
 {
 Method SearchInventory(
-    name As %String(DESCRIPTION = "Texto incluido en el nombre del producto")
+    name As %String(DESCRIPTION = "Text contained in the product name")
 ) As %DynamicObject
 {
     set startedAt = $zhorolog
@@ -278,124 +282,121 @@ Method SearchInventory(
 }
 ```
 
-`AddInventoryItem(name, sku, quantity)` crea un producto cuando el nombre no
-existe. Si encuentra una coincidencia exacta por nombre, suma `quantity` al
-stock existente y conserva el SKU almacenado, aunque la llamada contenga otra
-referencia. Para las altas nuevas rechaza referencias vacías o duplicadas; en
-todos los casos rechaza nombres vacíos y cantidades negativas. Como cualquier
-otra tool, debe asignarse explícitamente a los agentes que puedan utilizarla.
+`AddInventoryItem(name, sku, quantity)` creates a product when its name does
+not exist. On an exact name match, it adds `quantity` to the current stock and
+keeps the stored SKU even if the call contains a different reference. New
+records reject empty or duplicate references; all calls reject empty names and
+negative quantities. Like every other tool, it must be explicitly assigned to
+the agents allowed to use it.
 
-El dominio de demostración incluye además `App.Demo.Shipment` y
-`App.Demo.ShipmentProduct`. El bootstrap crea ocho envíos y 23 líneas asociadas
-a los productos del inventario. Cada envío conserva referencia, cliente, fecha
-de envío, fecha de recepción e importe total; cada línea conserva producto,
-cantidad e importe total del producto.
+The demo domain also includes `App.Demo.Shipment` and
+`App.Demo.ShipmentProduct`. Bootstrap creates eight shipments and 23 product
+lines linked to inventory items. A shipment stores reference, customer,
+shipping date, receipt date, and total amount; each line stores the product,
+shipped quantity, and product total.
 
-`App.Demo.ShipmentTools` publica:
+`App.Demo.ShipmentTools` publishes:
 
-- `SearchShipmentsByProduct(productId)`, que devuelve todos los envíos que
-  contienen el ID de producto indicado;
-- `SearchShipmentsByDateRange(startDate, endDate)`, que filtra inclusivamente
-  por fecha de envío. Si `startDate` está vacío solo aplica `<= endDate`; si
-  `endDate` está vacío solo aplica `>= startDate`; si ambos están vacíos devuelve
-  todos los envíos. Las fechas usan el formato `YYYY-MM-DD`.
+- `SearchShipmentsByProduct(productId)`, returning every shipment containing
+  the requested inventory product ID;
+- `SearchShipmentsByDateRange(startDate, endDate)`, filtering inclusively by
+  shipping date. An empty `startDate` only applies `<= endDate`; an empty
+  `endDate` only applies `>= startDate`; when both are empty all shipments are
+  returned. Dates use `YYYY-MM-DD`.
 
-`POST /api/app/tools/sync` vuelve a inspeccionar las clases compiladas. Los
-métodos nuevos se incorporan aprobados y habilitados; los que han desaparecido
-se marcan `retired`. Los estados existentes y las asignaciones dinámicas no se
-sobrescriben.
+`POST /api/app/tools/sync` inspects compiled classes again. New methods are
+added as approved and enabled, while removed methods are marked `retired`.
+Existing lifecycle states and dynamic assignments are preserved.
 
-Como `AddTool()` registra una instancia completa, la factoría utiliza un
-adaptador interno para exponer únicamente cada método asignado al agente. La
-implementación y la ejecución siguen perteneciendo a la clase `%AI.Tool` real.
+Because `AddTool()` registers a complete instance, the factory uses an internal
+adapter to expose only the method assigned to an agent. Implementation and
+execution still belong to the real `%AI.Tool` class.
 
-## Policies y agentes
+## Policies and agents
 
-| Tipo | Clase base requerida | Aplicación en el agente |
+| Type | Required base class | Application to the agent |
 |---|---|---|
 | `authorization` | `%AI.Policy.Authorization` | `SetAuthPolicy()` |
 | `audit` | `%AI.Policy.Audit` | `SetAuditPolicy()` |
 | `discovery` | `%AI.Policy.Discovery` | `SetDiscoveryPolicy()` |
 
-Una vez guardada la configuración del proveedor en `App.Governance.Model`, el
-agente se materializa por su nombre lógico:
+After metadata is registered in `App.Governance.Model` and connection details
+in Config Store, materialize the agent by logical name:
 
 ```objectscript
-set sc = ##class(App.AIHub.AgentFactory).Create("nombre-del-agente", .agent)
+set sc = ##class(App.AIHub.AgentFactory).Create("agent-name", .agent)
 set session = agent.CreateSession()
-set response = agent.Chat(session, "Busca productos cuyo nombre contenga café")
+set response = agent.Chat(session, "Find products whose name contains coffee")
 write response.Content
 ```
 
-La factoría vuelve a resolver las tablas `AgentTool` y `ToolPolicy` al crear el
-agente, por lo que IRIS conserva el control de la superficie disponible y de
-las auditorías aplicables. `App.AIHub.Policy.DynamicAudit` compone las policies
-asignadas a cada tool; el ejemplo `database-audit` persiste los eventos en
+The factory resolves `AgentTool` and `ToolPolicy` tables every time it creates
+an agent, keeping control of the available surface and applicable audits inside
+IRIS. `App.AIHub.Policy.DynamicAudit` composes policies assigned to each tool;
+the `database-audit` example persists events in
 `App.Governance.AuditEvent`.
 
-## Chat y autorización de usuarios
+## Chat and user authorization
 
-La pantalla **Chat de agentes** permite seleccionar cualquiera de los agentes
-aprobados. La primera llamada crea una `%AI.Agent.Session`; las siguientes
-reutilizan esa sesión para conservar el contexto. La conversación, su usuario
-propietario y el transcript se guardan en IRIS.
+The **Agent chat** screen can invoke any approved agent. The first call creates
+a `%AI.Agent.Session`; subsequent calls reuse it to preserve context. IRIS
+stores the conversation, its owning user, and its transcript.
 
-`App.AIHub.Policy.UserAccess` extiende `%AI.Policy.Authorization`. IRIS valida
-el Bearer JWT y establece el sujeto autenticado; la policy cruza ese sujeto con
-`App.Governance.AIUser` y `App.Governance.AgentUser`. La comprobación se realiza
-antes de invocar el modelo y de nuevo dentro del `ToolManager` para descubrir y
-ejecutar tools. La conversación solo puede continuar con el mismo usuario y
-agente con los que fue creada.
+`App.AIHub.Policy.UserAccess` extends `%AI.Policy.Authorization`. IRIS validates
+the Bearer JWT and establishes the authenticated subject; the policy checks it
+against `App.Governance.AIUser` and `App.Governance.AgentUser`. Authorization is
+evaluated before model invocation and again inside `ToolManager` when tools are
+discovered or executed. A conversation can only continue with its original
+user and agent.
 
-La pestaña **Usuarios IA** permite dar de alta, bloquear y reactivar usuarios,
-y seleccionar dinámicamente qué agentes puede ejecutar cada uno. Solo se
-admiten nombres que existan en el registro de seguridad de IRIS. El bootstrap
-autoriza `CSPSystem`; sus agentes permitidos se seleccionan desde la propia
-plataforma y se almacenan en IRIS.
+The **AI users** tab can register, block, and reactivate users and dynamically
+choose which agents each user may execute. Names must exist in the IRIS security
+registry. Bootstrap authorizes `CSPSystem`; its allowed agents are selected in
+the platform and stored in IRIS.
 
 ## API
 
-| Método | Ruta | Uso |
+| Method | Route | Purpose |
 |---|---|---|
-| `GET` | `/api/app/health` | Salud de la plataforma IRIS AI Hub |
-| `POST` | `/api/app/login` | Obtener access y refresh JWT con credenciales IRIS |
-| `POST` | `/api/app/refresh` | Renovar el par de tokens JWT |
-| `POST` | `/api/app/logout` | Invalidar la sesión JWT |
-| `GET/POST` | `/api/app/ai-users` | Allow-list de usuarios autorizados |
-| `PUT` | `/api/app/ai-users/:username/agents` | Agentes permitidos para un usuario |
-| `GET` | `/api/app/my-agents` | Agentes permitidos para el sujeto del JWT |
-| `POST` | `/api/app/chat` | Enviar un mensaje y continuar una conversación |
-| `GET` | `/api/app/providers` | Proveedores soportados |
-| `GET/POST` | `/api/app/models` | Catálogo de modelos |
-| `PUT` | `/api/app/models/:modelName` | Actualizar configuración y ciclo de vida de un modelo |
-| `GET` | `/api/app/tools` | Métodos `%AI.Tool` descubiertos |
-| `PUT` | `/api/app/tools/:toolName` | Actualizar gobierno, metadatos y auditorías de una tool |
-| `POST` | `/api/app/tools/sync` | Sincronizar el catálogo del namespace |
-| `GET/POST` | `/api/app/policies` | Policies registradas por tipo |
-| `GET/POST` | `/api/app/agents` | Definiciones de agentes |
-| `PUT` | `/api/app/agents/:agentName` | Actualizar modelo, parámetros, tools y policies de un agente |
-| `GET/PUT` | `/api/app/agents/:agentName/tools` | Consultar o reemplazar la allow-list |
-| `GET` | `/api/app/agents/:agentName/catalog` | Catálogo efectivo entregado al agente |
-| `GET/PUT` | `/api/app/tools/:toolName/policies` | Auditorías asignadas a una tool |
-| `GET` | `/api/app/audit-events` | Historial persistente de ejecuciones |
-| `POST` | `/api/app/agents/:agentName/test` | Inferencia de prueba mediante el agente |
+| `GET` | `/api/app/health` | IRIS AI Hub platform health |
+| `POST` | `/api/app/login` | Obtain access and refresh JWTs from IRIS credentials |
+| `POST` | `/api/app/refresh` | Refresh the token pair |
+| `POST` | `/api/app/logout` | Invalidate the JWT session |
+| `GET/POST` | `/api/app/ai-users` | Authorized user allow-list |
+| `PUT` | `/api/app/ai-users/:username/agents` | Agents allowed for a user |
+| `GET` | `/api/app/my-agents` | Agents allowed for the JWT subject |
+| `POST` | `/api/app/chat` | Send a message and continue a conversation |
+| `GET` | `/api/app/providers` | Supported providers |
+| `GET/POST` | `/api/app/models` | Model catalog |
+| `PUT` | `/api/app/models/:modelName` | Update model configuration and lifecycle |
+| `GET` | `/api/app/tools` | Discovered `%AI.Tool` methods |
+| `PUT` | `/api/app/tools/:toolName` | Update tool governance, metadata, and audits |
+| `POST` | `/api/app/tools/sync` | Synchronize the namespace catalog |
+| `GET/POST` | `/api/app/policies` | Registered policies by type |
+| `GET/POST` | `/api/app/agents` | Agent definitions |
+| `PUT` | `/api/app/agents/:agentName` | Update an agent's model, parameters, tools, and policies |
+| `GET/PUT` | `/api/app/agents/:agentName/tools` | Read or replace the tool allow-list |
+| `GET` | `/api/app/agents/:agentName/catalog` | Effective catalog exposed to an agent |
+| `GET/PUT` | `/api/app/tools/:toolName/policies` | Audits assigned to a tool |
+| `GET` | `/api/app/audit-events` | Persistent execution history |
+| `POST` | `/api/app/agents/:agentName/test` | Test inference through an agent |
 
-## Estructura
+## Project structure
 
 ```text
-iris/src/App/Governance/       # modelo persistente y validaciones
-iris/src/App/REST/             # API administrativa
-iris/src/App/Demo/             # modelo y %AI.Tool de ejemplo
-iris/src/App/AIHub/            # policies, adaptador y factoría AI Hub
-iris/src/App/Interop/          # producción, mensajes, service y operation
-frontend/src/                  # consola React
-webgateway/shared/             # configuración del Gateway
+iris/src/App/Governance/       # persistent governance model and validation
+iris/src/App/REST/             # administrative API
+iris/src/App/Demo/             # sample domain model and %AI.Tool classes
+iris/src/App/AIHub/            # policies, adapter, and AI Hub factory
+iris/src/App/Interop/          # production, messages, service, and operation
+frontend/src/                  # React console
+webgateway/shared/             # Web Gateway configuration
 ```
 
-Todo el código ObjectScript se carga desde `iris/src`. AI Hub es una
-dependencia obligatoria de la solución.
+All ObjectScript source is loaded from `iris/src`. AI Hub is a mandatory
+dependency.
 
-## Desarrollo del frontend
+## Frontend development
 
 ```powershell
 Set-Location frontend
@@ -403,4 +404,4 @@ npm install
 npm run dev
 ```
 
-Vite redirige `/api/app` a `http://localhost:8080`.
+Vite proxies `/api/app` to `http://localhost:8080`.
