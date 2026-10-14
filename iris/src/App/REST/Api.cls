@@ -10,6 +10,11 @@ XData UrlMap
 {
 <Routes>
   <Route Url="/health" Method="GET" Call="Health" />
+  <Route Url="/mcp-servers" Method="GET" Call="ListMCPServers" />
+  <Route Url="/mcp-servers" Method="POST" Call="CreateMCPServer" />
+  <Route Url="/mcp-servers/:serverName" Method="PUT" Call="UpdateMCPServer" />
+  <Route Url="/mcp-servers/:serverName/tools" Method="GET" Call="ListMCPTools" />
+  <Route Url="/mcp-servers/:serverName/tools/sync" Method="POST" Call="SynchronizeMCPTools" />
   <Route Url="/ai-users" Method="GET" Call="ListAIUsers" />
   <Route Url="/ai-users" Method="POST" Call="SetAIUser" />
   <Route Url="/ai-users/:username/agents" Method="PUT" Call="SetAIUserAgents" />
@@ -31,8 +36,6 @@ XData UrlMap
   <Route Url="/agents/:agentName/tools" Method="PUT" Call="SetAgentTools" />
   <Route Url="/agents/:agentName/catalog" Method="GET" Call="GetAgentCatalog" />
   <Route Url="/agents/:agentName/test" Method="POST" Call="TestAgent" />
-  <Route Url="/tools/:toolName/policies" Method="GET" Call="GetToolPolicies" />
-  <Route Url="/tools/:toolName/policies" Method="PUT" Call="SetToolPolicies" />
   <Route Url="/audit-events" Method="GET" Call="ListAuditEvents" />
 </Routes>
 }
@@ -45,6 +48,36 @@ ClassMethod Health() As %Status
         "platform":"InterSystems IRIS AI Hub"
     }
     do ..WriteJSON(body)
+    quit $$$OK
+}
+
+ClassMethod ListMCPServers() As %Status
+{
+    do ..WriteJSON(##class(App.Governance.MCPServer).ListJSON())
+    quit $$$OK
+}
+
+ClassMethod CreateMCPServer() As %Status
+{
+    quit ..CreateResource("App.Governance.MCPServer")
+}
+
+ClassMethod UpdateMCPServer(serverName As %String) As %Status
+{
+    quit ..UpdateResource("App.Governance.MCPServer", serverName)
+}
+
+ClassMethod ListMCPTools(serverName As %String) As %Status
+{
+    do ..WriteJSON(##class(App.Governance.Tool).ListJSON(serverName))
+    quit $$$OK
+}
+
+ClassMethod SynchronizeMCPTools(serverName As %String) As %Status
+{
+    set sc = ##class(App.AIHub.MCP.Catalog).Synchronize(serverName, .result)
+    if $$$ISERR(sc) { do ..WriteError(sc, 400) quit $$$OK }
+    do ..WriteJSON(result)
     quit $$$OK
 }
 
@@ -209,23 +242,6 @@ ClassMethod GetAgentCatalog(agentName As %String) As %Status
         "tools":(agent.ToolManager.%Discover())
     })
     quit $$$OK
-}
-
-ClassMethod GetToolPolicies(toolName As %String) As %Status
-{
-    do ..WriteJSON({
-        "tool":(toolName),
-        "policies":(##class(App.Governance.ToolPolicy).ListForTool(toolName))
-    })
-    quit $$$OK
-}
-
-ClassMethod SetToolPolicies(toolName As %String) As %Status
-{
-    set payload = {}.%FromJSON(%request.Content)
-    set sc = ##class(App.Governance.ToolPolicy).SetForTool(toolName, payload.%Get("policies", []))
-    if $$$ISERR(sc) { do ..WriteError(sc, 400)  quit $$$OK }
-    quit ..GetToolPolicies(toolName)
 }
 
 ClassMethod ListAuditEvents() As %Status

@@ -106,6 +106,7 @@ ClassMethod ValidateReferences(modelName As %String, tools As %DynamicArray,
         set rs = ##class(%SQL.Statement).%ExecDirect(,
             "SELECT Name FROM App_Governance.Tool WHERE Name = ?" _ stateClause, logicalName)
         if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Tool is missing or not available: " _ logicalName)
+        if '##class(App.Governance.Tool).IsAvailable(logicalName, requireApproved) quit $$$ERROR($$$GeneralError, "Tool or MCP server is not available: " _ logicalName)
     }
 
     if '$isobject(policies) quit $$$ERROR($$$GeneralError, "policies must be an array")

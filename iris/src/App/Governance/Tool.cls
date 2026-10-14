@@ -7,15 +7,19 @@ Class App.Governance.Tool Extends (%Persistent, %JSON.Adaptor)
 Property Name As %String(MAXLEN = 120) [ Required ];
 Property ClassName As %String(MAXLEN = 240) [ Required ];
 Property MethodName As %String(MAXLEN = 200) [ Required ];
-Property Description As %String(MAXLEN = 1000);
+Property Description As %String(MAXLEN = "");
 Property RequiresApproval As %Boolean [ InitialExpression = 0 ];
 Property DescriptorJSON As %String(MAXLEN = "");
 Property Status As %String(VALUELIST = ",draft,approved,suspended,retired") [ InitialExpression = "approved" ];
 Property Enabled As %Boolean [ InitialExpression = 1 ];
 Property CreatedAt As %TimeStamp;
+Property MCPServerName As %String(MAXLEN = 120);
+Property RemoteToolName As %String(MAXLEN = 1000, COLLATION = "EXACT");
+Property RemoteAvailable As %Boolean [ InitialExpression = 1 ];
 
 Index NameIndex On Name [ Unique ];
 Index MethodIndex On (ClassName, MethodName) [ Unique ];
+Index RemoteIndex On (MCPServerName, RemoteToolName);
 
 /// Synchronizes the registry with every application class in this namespace
 /// that extends %AI.Tool. %Discover() remains the source of truth for which
@@ -49,7 +53,8 @@ ClassMethod Synchronize(Output result As %DynamicObject) As %Status
     if $$$ISERR(sc) quit sc
 
     set stale = ##class(%SQL.Statement).%ExecDirect(,
-        "SELECT ID, Name FROM App_Governance.Tool WHERE Status <> 'retired' OR Enabled <> 0")
+        "SELECT ID, Name FROM App_Governance.Tool WHERE (MCPServerName IS NULL OR MCPServerName = '') " _
+        "AND (Status <> 'retired' OR Enabled <> 0)")
     if stale.%SQLCODE < 0 quit $$$ERROR($$$SQLError, stale.%SQLCODE, stale.%Message)
     while stale.%Next() {
         if $data(seen(stale.%Get("Name"))) continue
@@ -135,13 +140,32 @@ ClassMethod SynchronizeClass(className As %String, ByRef seen,
     quit sc
 }
 
-ClassMethod ListJSON() As %DynamicArray
+ClassMethod IsAvailable(name As %String, requireApproved As %Boolean = 1) As %Boolean
+{
+    set rs = ##class(%SQL.Statement).%ExecDirect(,
+        "SELECT t.Status, t.Enabled, t.MCPServerName, t.RemoteAvailable, " _
+        "s.Status AS ServerStatus, s.Enabled AS ServerEnabled FROM App_Governance.Tool t " _
+        "LEFT JOIN App_Governance.MCPServer s ON s.Name = t.MCPServerName WHERE t.Name = ?", name)
+    if 'rs.%Next() quit 0
+    if requireApproved, (rs.%Get("Status") '= "approved") || 'rs.%Get("Enabled") quit 0
+    if rs.%Get("MCPServerName") = "" quit 1
+    quit (rs.%Get("RemoteAvailable") = 1) && (rs.%Get("ServerStatus") = "approved") && (rs.%Get("ServerEnabled") = 1)
+}
+
+ClassMethod ListJSON(serverName As %String = "") As %DynamicArray
 {
     set output = []
-    set rs = ##class(%SQL.Statement).%ExecDirect(,
+    set sql =
         "SELECT ID, Name, ClassName, MethodName, Description, RequiresApproval, " _
-        "DescriptorJSON, Status, Enabled, CreatedAt FROM App_Governance.Tool " _
-        "WHERE Status <> 'retired' ORDER BY Name")
+        "DescriptorJSON, Status, Enabled, CreatedAt, MCPServerName, RemoteToolName FROM App_Governance.Tool " _
+        "WHERE Status <> 'retired'"
+    if serverName '= "" set sql = sql _ " AND MCPServerName = ?"
+    set sql = sql _ " ORDER BY Name"
+    if serverName = "" {
+        set rs = ##class(%SQL.Statement).%ExecDirect(, sql)
+    } else {
+        set rs = ##class(%SQL.Statement).%ExecDirect(, sql, serverName)
+    }
     while rs.%Next() {
         do output.%Push({
             "id":(rs.%Get("ID")),
@@ -151,7 +175,9 @@ ClassMethod ListJSON() As %DynamicArray
             "description":(rs.%Get("Description")),
             "requiresApproval":(rs.%Get("RequiresApproval")),
             "schema":(rs.%Get("DescriptorJSON")),
-            "auditPolicies":(##class(App.Governance.ToolPolicy).ListForTool(rs.%Get("Name"))),
+            "source":($select(rs.%Get("MCPServerName")="":"native", 1:"mcp")),
+            "serverName":(rs.%Get("MCPServerName")), "remoteName":(rs.%Get("RemoteToolName")),
+            "available":(..IsAvailable(rs.%Get("Name"), 0)),
             "status":(rs.%Get("Status")),
             "enabled":(rs.%Get("Enabled")),
             "createdAt":(rs.%Get("CreatedAt"))
@@ -163,6 +189,9 @@ ClassMethod ListJSON() As %DynamicArray
 ClassMethod Update(name As %String, payload As %DynamicObject,
     Output result As %DynamicObject) As %Status
 {
+    if payload.%IsDefined("auditPolicies") {
+        quit $$$ERROR($$$GeneralError, "Audit policies must be configured on the agent, not on the tool")
+    }
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.Tool WHERE Name = ?", name)
     if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
@@ -175,7 +204,6 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     if payload.%Get("methodName", item.MethodName) '= item.MethodName {
         quit $$$ERROR($$$GeneralError, "The discovered tool method cannot be changed")
     }
-    set policies = payload.%Get("auditPolicies", ##class(App.Governance.ToolPolicy).ListForTool(name))
 
     tstart
     set item.Description = payload.%Get("description", item.Description)
@@ -184,8 +212,6 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     set item.Enabled = payload.%Get("enabled", item.Enabled)
     set sc = item.%Save()
     if $$$ISERR(sc) { trollback  quit sc }
-    set sc = ##class(App.Governance.ToolPolicy).SetForTool(name, policies)
-    if $$$ISERR(sc) { trollback  quit sc }
     tcommit
     set result = {
         "id":(item.%Id()), "name":(item.Name),
@@ -193,7 +219,9 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
         "description":(item.Description),
         "requiresApproval":(item.RequiresApproval),
         "schema":(item.DescriptorJSON),
-        "auditPolicies":(##class(App.Governance.ToolPolicy).ListForTool(item.Name)),
+        "source":($select(item.MCPServerName="":"native", 1:"mcp")),
+        "serverName":(item.MCPServerName), "remoteName":(item.RemoteToolName),
+        "available":(..IsAvailable(item.Name, 0)),
         "status":(item.Status), "enabled":(item.Enabled),
         "createdAt":(item.CreatedAt)
     }

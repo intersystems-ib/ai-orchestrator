@@ -21,6 +21,52 @@ services:
     networks:
       - app-network
 
+  iris-mcp:
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris-mcp
+    build:
+      context: .
+      dockerfile: iris-mcp/Dockerfile
+      args:
+        IMAGE: ${IRIS_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0}
+    command: --check-caps false --ISCAgent false
+    environment:
+      ISC_DATA_DIRECTORY: /iris-shared/durable
+    ports:
+      - "${IRIS_MCP_WEB_PORT:-52774}:52773"
+      - "${IRIS_MCP_SUPERSERVER_PORT:-1973}:1972"
+    volumes:
+      - ./iris-mcp/shared:/iris-shared
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  iris-mcp-transport:
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris-mcp-transport
+    image: ${IRIS_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0}
+    entrypoint: ["python3", "/etc/iris-mcp/serve.py"]
+    environment:
+      IRIS_MCP_USERNAME: ${IRIS_MCP_USERNAME:-CSPSystem}
+      IRIS_MCP_PASSWORD: ${IRIS_MCP_PASSWORD:-SYS}
+    ports:
+      - "127.0.0.1:${MCP_HTTP_PORT:-8082}:8080"
+    volumes:
+      - ./iris-mcp/config.toml:/etc/iris-mcp/config.toml:ro
+      - ./iris-mcp/serve.py:/etc/iris-mcp/serve.py:ro
+    depends_on:
+      iris-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 8080), 5).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
   webgateway:
     init: true
     container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-webgateway

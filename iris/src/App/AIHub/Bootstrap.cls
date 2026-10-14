@@ -6,6 +6,8 @@ Class App.AIHub.Bootstrap
 
 ClassMethod Seed() As %Status
 {
+    set sc = ##class(App.AIHub.MCP.Connection).ConfigureTLS()
+    if $$$ISERR(sc) quit sc
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.AIUser WHERE Username = ?", "CSPSystem")
     if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
@@ -48,6 +50,9 @@ ClassMethod Seed() As %Status
         set sc = ##class(App.Governance.Policy).Create(payload, .ignored)
         if $$$ISERR(sc) quit sc
     }
+
+    set sc = ##class(App.AIHub.Upgrade.AgentAuditPolicies).Run()
+    if $$$ISERR(sc) quit sc
 
     set sc = ##class(App.Governance.Tool).Synchronize(.ignored)
     if $$$ISERR(sc) quit sc

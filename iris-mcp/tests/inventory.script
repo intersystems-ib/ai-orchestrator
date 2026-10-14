@@ -1,0 +1,5 @@
+zn "MCP"
+set sc=$SYSTEM.OBJ.Load("/tmp/InventoryTest.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set failures=##class(External.Test.Inventory).Run()
+halt

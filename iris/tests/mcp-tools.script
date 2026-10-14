@@ -1,0 +1,83 @@
+zn "APP"
+set failures=0
+set sc=##class(App.AIHub.MCP.Catalog).Synchronize("iris-mcp-demo",.discovered)
+if '$SYSTEM.Status.IsOK(sc) { write "FAIL discovery: ",$SYSTEM.Status.GetErrorText(sc),! halt }
+set tools=discovered.%Get("tools")
+set allTools=##class(App.Governance.Tool).ListJSON()
+if allTools.%Size() < tools.%Size() { set failures=failures+1 write "FAIL unfiltered catalog omitted MCP tools",! }
+set priceName="", searchName=""
+for i=0:1:(tools.%Size()-1) { set tool=tools.%Get(i) if tool.%Get("remoteName")="mcp_demo_GetDailyPrices" { set priceName=tool.%Get("name") } if tool.%Get("remoteName")="mcp_demo_SearchInventory" { set searchName=tool.%Get("name") } }
+if (priceName="") || (searchName="") { write "FAIL missing demo tools",! halt }
+tstart
+set prefix="mcp-test-"_$translate($SYSTEM.Util.CreateGUID(),"{}","")
+set payload={"name":(prefix),"displayName":"MCP integration model","provider":"nim","modelId":"llama-3.1-8b-instruct","apiKey":"not-needed","baseUrl":"http://llama:8000/v1","status":"approved","enabled":true}
+set sc=##class(App.Governance.Model).Create(payload,.model)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL model: ",$SYSTEM.Status.GetErrorText(sc),! }
+set payload={"name":(prefix),"displayName":"MCP integration agent","modelName":(prefix),"status":"approved","enabled":true,"tools":[(priceName)],"policies":["database-audit"]}
+set sc=##class(App.Governance.Agent).Create(payload,.definition)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL agent: ",$SYSTEM.Status.GetErrorText(sc),! }
+set permission=##class(App.Governance.AgentUser).%New()
+set permission.Username="CSPSystem", permission.AgentName=prefix, permission.Enabled=1
+set sc=permission.%Save()
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL authorization fixture",! }
+do ##class(App.AIHub.RuntimeContext).SetRequest(prefix,"CSPSystem")
+set sc=##class(App.AIHub.AgentFactory).Create(prefix,.agent)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL factory: ",$SYSTEM.Status.GetErrorText(sc),! }
+set catalog=agent.ToolManager.%Discover()
+write "AGENT_CATALOG=",catalog.%ToJSON(),!
+if catalog.%Size() '= 1 { set failures=failures+1 write "FAIL assigned tool isolation",! }
+set result=agent.ToolManager.ExecuteTool(priceName,{"name":($char(67,97,102,233)),"day":($zdate(+$horolog,3))})
+write "REMOTE_RESULT=",result.%ToJSON(),!
+set quotes=##class(%DynamicObject).%FromJSON(result.%Get("value").%Get("content").%Get(0).%Get("text"))
+if quotes.count '= 2 { set failures=failures+1 write "FAIL remote quotations",! }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName = ? AND ToolName = ? AND RequestId = ? AND Success = 1",prefix,priceName,prefix)
+do rs.%Next()
+if rs.%Get("Records") '= 1 { set failures=failures+1 write "FAIL agent audit: ",rs.%Get("Records"),! }
+set sc=##class(App.AIHub.Tool.RemoteMCP).Create(searchName,.unassigned)
+set denied="" try { set ignored=unassigned.%Invoke(searchName,{}) } catch exception { set denied=$SYSTEM.Status.GetErrorText(exception.AsStatus()) }
+if '$find(denied,"not assigned") { set failures=failures+1 write "FAIL unassigned tool rejected: ",denied,! }
+set sc=##class(App.Governance.MCPServer).Update("iris-mcp-demo",{"enabled":false},.ignored)
+if ##class(App.Governance.Tool).IsAvailable(priceName) { set failures=failures+1 write "FAIL disabled server availability",! }
+set denied="" try { set ignored=agent.ToolManager.ExecuteTool(priceName,{"text":"must-not-run"}) } catch exception { set denied=$SYSTEM.Status.GetErrorText(exception.AsStatus()) }
+if '$find(denied,"no longer available") { set failures=failures+1 write "FAIL stale adapter rejected: ",denied,! }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName = ? AND Success = 0",prefix)
+do rs.%Next()
+if rs.%Get("Records") '= 1 { set failures=failures+1 write "FAIL failed execution audit",! }
+set sc=##class(App.AIHub.AgentFactory).Create(prefix,.filteredAgent)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL filtered factory",! }
+if filteredAgent.ToolManager.%Discover().%Size() '= 0 { set failures=failures+1 write "FAIL disabled server filtered",! }
+set sc=##class(App.Governance.MCPServer).Update("iris-mcp-demo",{"enabled":true},.ignored)
+set sc=##class(App.Governance.Tool).Update(priceName,{"status":"suspended"},.ignored)
+set missing=##class(App.Governance.Tool).%New()
+set missing.Name=prefix, missing.ClassName="App.AIHub.Tool.RemoteMCP", missing.MethodName=prefix, missing.MCPServerName="iris-mcp-demo", missing.RemoteToolName=prefix, missing.RemoteAvailable=1, missing.Status="approved", missing.Enabled=1
+set sc=missing.%Save()
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL removed tool fixture",! }
+set sc=##class(App.AIHub.MCP.Catalog).Synchronize("iris-mcp-demo",.resynced)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL resynchronization: ",$SYSTEM.Status.GetErrorText(sc),! }
+if resynced.%Get("created") '= 0 { set failures=failures+1 write "FAIL duplicate tool import",! }
+if resynced.%Get("unavailable") '= 1 { set failures=failures+1 write "FAIL removed remote tool",! }
+if ##class(App.Governance.Tool).IsAvailable(priceName) { set failures=failures+1 write "FAIL suspended state not preserved",! }
+if ##class(App.Governance.Tool).IsAvailable(prefix) { set failures=failures+1 write "FAIL missing tool availability",! }
+set sc=##class(App.Governance.Tool).Synchronize(.nativeCatalog)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL native synchronization",! }
+if '##class(App.Governance.Tool).IsAvailable(searchName) { set failures=failures+1 write "FAIL native sync retired MCP tool",! }
+set sc=##class(App.Governance.MCPServer).Update("iris-mcp-demo",{"endpointUrl":"http://127.0.0.1:1/mcp"},.ignored)
+if ##class(App.Governance.Tool).IsAvailable(searchName) { set failures=failures+1 write "FAIL retargeted server kept old tools",! }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.Tool WHERE MCPServerName = 'iris-mcp-demo'")
+do rs.%Next()
+set previousCount=rs.%Get("Records")
+set sc=##class(App.AIHub.MCP.Catalog).Synchronize("iris-mcp-demo",.ignored)
+if $SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL unreachable server accepted",! }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.Tool WHERE MCPServerName = 'iris-mcp-demo'")
+do rs.%Next()
+if rs.%Get("Records") '= previousCount { set failures=failures+1 write "FAIL failed sync changed catalog",! }
+set sc=##class(App.Governance.MCPServer).Create({"name":(prefix),"displayName":"Missing secret test","endpointUrl":"http://127.0.0.1:1/mcp","authMode":"bearer","bearerSecret":"secret://missing-mcp-integration-test","status":"approved","enabled":true},.ignored)
+if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL bearer fixture",! }
+set sc=##class(App.AIHub.MCP.Client).Execute(prefix,"tools/list",{},.ignored)
+if $SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL unresolved bearer token accepted",! }
+do agent.ToolManager.Cleanup()
+do filteredAgent.ToolManager.Cleanup()
+trollback
+do ##class(App.AIHub.RuntimeContext).Clear()
+write "MCP_TOOL_FAILURES=",failures,!
+halt

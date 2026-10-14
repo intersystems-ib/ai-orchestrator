@@ -1,0 +1,32 @@
+zn "APP"
+set failures=0
+set sc=##class(App.AIHub.MCP.Catalog).Synchronize("iris-mcp-demo",.discovered)
+if '$SYSTEM.Status.IsOK(sc) { write "FAIL discovery: ",$SYSTEM.Status.GetErrorText(sc),! halt }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT Name FROM App_Governance.Tool WHERE MCPServerName = 'iris-mcp-demo' AND RemoteToolName = 'mcp_demo_GetDailyPrices'")
+if 'rs.%Next() { write "FAIL missing quotation tool",! halt }
+set priceName=rs.%Get("Name")
+tstart
+set prefix="mcp-price-test-"_$translate($SYSTEM.Util.CreateGUID(),"{}","")
+set sc=##class(App.Governance.Model).Create({"name":(prefix),"displayName":"MCP quotation model","provider":"nim","modelId":"llama-3.1-8b-instruct","apiKey":"not-needed","baseUrl":"http://llama:8000/v1","status":"approved","enabled":true},.model)
+if '$SYSTEM.Status.IsOK(sc) { write "FAIL model: ",$SYSTEM.Status.GetErrorText(sc),! trollback halt }
+set sc=##class(App.Governance.Agent).Create({"name":(prefix),"displayName":"MCP quotation agent","modelName":(prefix),"status":"approved","enabled":true,"tools":[(priceName)],"policies":["database-audit"]},.definition)
+if '$SYSTEM.Status.IsOK(sc) { write "FAIL agent: ",$SYSTEM.Status.GetErrorText(sc),! trollback halt }
+set permission=##class(App.Governance.AgentUser).%New()
+set permission.Username="CSPSystem", permission.AgentName=prefix, permission.Enabled=1
+set sc=permission.%Save()
+if '$SYSTEM.Status.IsOK(sc) { write "FAIL permission",! trollback halt }
+do ##class(App.AIHub.RuntimeContext).SetRequest(prefix,"CSPSystem")
+set sc=##class(App.AIHub.AgentFactory).Create(prefix,.agent)
+if '$SYSTEM.Status.IsOK(sc) { write "FAIL factory: ",$SYSTEM.Status.GetErrorText(sc),! trollback halt }
+set result=agent.ToolManager.ExecuteTool(priceName,{"name":($char(67,97,102,233)),"day":($zdate(+$horolog,3))})
+set quotes=##class(%DynamicObject).%FromJSON(result.%Get("value").%Get("content").%Get(0).%Get("text"))
+write "AGENT_QUOTATIONS=",quotes.%ToJSON(),!
+if quotes.count '= 2 { set failures=failures+1 write "FAIL remote quotation results",! }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName = ? AND ToolName = ? AND RequestId = ? AND Success = 1",prefix,priceName,prefix)
+do rs.%Next()
+if rs.%Get("Records") '= 1 { set failures=failures+1 write "FAIL quotation audit",! }
+do agent.ToolManager.Cleanup()
+trollback
+do ##class(App.AIHub.RuntimeContext).Clear()
+write "MCP_PRICE_FAILURES=",failures,!
+halt

@@ -23,6 +23,7 @@ ClassMethod SetForAgent(agentName As %String, tools As %DynamicArray) As %Status
             "SELECT ID FROM App_Governance.Tool " _
             "WHERE Name = ? AND Status = 'approved' AND Enabled = 1", toolName)
         if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Tool is not approved and enabled: " _ toolName)
+        if '##class(App.Governance.Tool).IsAvailable(toolName) quit $$$ERROR($$$GeneralError, "Tool or MCP server is not available: " _ toolName)
     }
 
     tstart

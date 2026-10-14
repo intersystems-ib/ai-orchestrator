@@ -58,14 +58,19 @@ ClassMethod AttachTools(agent As %AI.Agent, agentName As %String) As %Status [ I
 {
     set sc = $$$OK
     set rs = ##class(%SQL.Statement).%ExecDirect(,
-        "SELECT t.Name, t.ClassName, t.MethodName FROM App_Governance.AgentTool assignment " _
+        "SELECT t.Name, t.ClassName, t.MethodName, t.MCPServerName FROM App_Governance.AgentTool assignment " _
         "JOIN App_Governance.Tool t ON t.Name = assignment.ToolName " _
         "WHERE assignment.AgentName = ? AND t.Status = 'approved' AND t.Enabled = 1 " _
         "ORDER BY t.Name", agentName)
     if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
     while rs.%Next() {
-        set sc = ##class(App.AIHub.Tool.SelectedMethod).Create(
-            rs.%Get("ClassName"), rs.%Get("MethodName"), .tool)
+        if '##class(App.Governance.Tool).IsAvailable(rs.%Get("Name")) continue
+        if rs.%Get("MCPServerName") '= "" {
+            set sc = ##class(App.AIHub.Tool.RemoteMCP).Create(rs.%Get("Name"), .tool)
+        } else {
+            set sc = ##class(App.AIHub.Tool.SelectedMethod).Create(
+                rs.%Get("ClassName"), rs.%Get("MethodName"), .tool)
+        }
         if $$$ISERR(sc) quit
         set sc = agent.ToolManager.AddTool(tool)
         if $$$ISERR(sc) quit
@@ -87,7 +92,7 @@ ClassMethod AttachPolicies(agent As %AI.Agent, names As %String) As %Status [ In
         if '$isobject(policy) return $$$ERROR($$$GeneralError, "Could not instantiate policy: " _ className)
         set type = rs.%Get("Type")
         // UserAccess is mandatory and is the authorization policy in this version.
-        // Audit policies are selected dynamically per tool by DynamicAudit.
+        // DynamicAudit composes the audit policies selected on this agent.
         if type = "discovery" do agent.ToolManager.SetDiscoveryPolicy(policy)
     }
     quit $$$OK

@@ -1,0 +1,32 @@
+zn "APP"
+set failures = 0
+set testName = "mcp-test-" _ $translate($SYSTEM.Util.CreateGUID(), "{}", "")
+tstart
+set payload = {"name":(testName), "displayName":"MCP registry test", "endpointUrl":"http://iris-mcp-transport:8080/mcp", "status":"draft"}
+set sc = ##class(App.Governance.MCPServer).Create(payload, .result)
+if '$SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL create",! }
+set sc = ##class(App.Governance.MCPServer).Update(testName, {"status":"approved", "enabled":false}, .result)
+if '$SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL update",! }
+if result.%Get("status") '= "approved" { set failures = failures + 1 write "FAIL approval state",! }
+if result.%Get("enabled") '= 0 { set failures = failures + 1 write "FAIL disabled state",! }
+if result.%Get("endpointUrl") '= "http://iris-mcp-transport:8080/mcp" { set failures = failures + 1 write "FAIL partial update",! }
+set sc = ##class(App.Governance.MCPServer).Create(payload, .ignored)
+if $SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL duplicate name accepted",! }
+set sc = ##class(App.Governance.MCPServer).Update(testName, {"authMode":"bearer", "bearerSecret":"plaintext-token"}, .ignored)
+if $SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL plaintext token accepted",! }
+set sc = ##class(App.Governance.MCPServer).Update(testName, {"authMode":"bearer", "bearerSecret":"secret://test-token"}, .result)
+if '$SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL secret reference rejected",! }
+set sc = ##class(App.Governance.MCPServer).Update(testName, {"authMode":"none"}, .result)
+if '$SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL clear authentication",! }
+if result.%Get("bearerSecret") '= "" { set failures = failures + 1 write "FAIL stale token reference",! }
+for url = "file:///tmp/tools", "http://", "http://user:pass@server/mcp", "https://server/mcp?token=secret", "http://server/mcp fragment" { set sc = ##class(App.Governance.MCPServer).Update(testName, {"endpointUrl":(url)}, .ignored) if $SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL invalid URL accepted: ",url,! } }
+set sc = ##class(App.Governance.MCPServer).Update(testName, {"transport":"stdio"}, .ignored)
+if $SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL unsupported transport accepted",! }
+set sc = ##class(App.Governance.MCPServer).Update(testName, {"status":"invalid"}, .ignored)
+if $SYSTEM.Status.IsOK(sc) { set failures = failures + 1 write "FAIL invalid lifecycle accepted",! }
+trollback
+set rs = ##class(%SQL.Statement).%ExecDirect(, "SELECT COUNT(*) AS Records FROM App_Governance.MCPServer WHERE Name = ?", testName)
+do rs.%Next()
+if rs.%Get("Records") '= 0 { set failures = failures + 1 write "FAIL rollback cleanup",! }
+write "MCP_REGISTRY_FAILURES=",failures,!
+halt

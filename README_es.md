@@ -15,6 +15,7 @@ por Nginx y dos servidores locales llama.cpp opcionales.
 - Descubrimiento de los métodos publicados por todas las clases de aplicación
   compiladas en el namespace que extienden `%AI.Tool`.
 - Selección dinámica de los métodos disponibles para cada agente.
+- Descubrimiento, búsqueda y ejecución gobernada de herramientas de servidores MCP externos.
 - Chat multi-turno para probar cualquier agente aprobado, con sesiones y
   mensajes persistidos en IRIS.
 - Enrutamiento obligatorio de cada inferencia por una producción de
@@ -23,7 +24,7 @@ por Nginx y dos servidores locales llama.cpp opcionales.
   tanto para iniciar chats como para descubrir o ejecutar tools.
 - Registro de policies de autorización, auditoría y descubrimiento, validando
   el contrato nativo correspondiente de AI Hub.
-- Asignaciones agente→tool y tool→policy almacenadas íntegramente en IRIS y
+- Asignaciones agente→tool y agente→policy almacenadas íntegramente en IRIS y
   modificables sin recompilar ObjectScript.
 - Auditoría persistente de llamadas a tools, con agente, argumentos, resultado,
   duración y estado de ejecución.
@@ -37,8 +38,8 @@ por Nginx y dos servidores locales llama.cpp opcionales.
 |---|---|
 | Modelos | Catálogo de modelos comerciales y locales, conexión, aprobación y activación en una única entidad |
 | Agentes | Selección de modelo, system prompt, temperatura, máximo de iteraciones, tools y policies |
-| Tools | Descubrimiento de métodos publicados por clases que extienden `%AI.Tool` y asignación por agente |
-| Policies | Autorización obligatoria, descubrimiento y auditorías aplicables dinámicamente a cada tool |
+| Tools | Descubrimiento de herramientas locales y de servidores MCP, con asignación por agente |
+| Policies | Autorización obligatoria, descubrimiento y auditorías configuradas exclusivamente en cada agente |
 | Identidad | Autenticación JWT de IRIS, allow-list de usuarios y autorización usuario→agente |
 | Chat | Conversaciones y mensajes persistidos, selección de agente e invocación real mediante AI Hub |
 | Auditoría | Registro persistente de agente, tool, argumentos, resultado, duración y errores |
@@ -54,7 +55,7 @@ clases %AI.Tool ──> %Discover() ──> catálogo IRIS
                                            │
                               asignación agente→método
                                            │
-                              asignación tool→audit policy
+                              asignación agente→audit policy
                                            │
 modelo + configuración de agente ──────────┤
                                            ▼
@@ -338,11 +339,17 @@ set response = agent.Chat(session, "Busca productos cuyo nombre contenga café")
 write response.Content
 ```
 
-La factoría vuelve a resolver las tablas `AgentTool` y `ToolPolicy` al crear el
-agente, por lo que IRIS conserva el control de la superficie disponible y de
-las auditorías aplicables. `App.AIHub.Policy.DynamicAudit` compone las policies
-asignadas a cada tool; el ejemplo `database-audit` persiste los eventos en
-`App.Governance.AuditEvent`.
+La factoría resuelve las herramientas y policies de cada agente desde IRIS.
+`App.AIHub.Policy.DynamicAudit` compone las policies de auditoría aprobadas y
+habilitadas seleccionadas en el agente y las aplica a todas sus ejecuciones de
+tools. La policy `database-audit` persiste los eventos en
+`App.Governance.AuditEvent`. Las tools no tienen configuración de auditoría propia.
+
+Al actualizar, las asignaciones antiguas de auditoría por tool se trasladan a
+los agentes que usan esas herramientas, sin duplicar sus policies existentes.
+Después se vacían las asignaciones antiguas; el historial de auditoría se
+conserva. Las policies migradas cubren todas las tools del agente receptor y
+pueden modificarse posteriormente desde ese agente.
 
 ## Chat y autorización de usuarios
 
@@ -380,14 +387,13 @@ plataforma y se almacenan en IRIS.
 | `GET/POST` | `/api/app/models` | Catálogo de modelos |
 | `PUT` | `/api/app/models/:modelName` | Actualizar configuración y ciclo de vida de un modelo |
 | `GET` | `/api/app/tools` | Métodos `%AI.Tool` descubiertos |
-| `PUT` | `/api/app/tools/:toolName` | Actualizar gobierno, metadatos y auditorías de una tool |
+| `PUT` | `/api/app/tools/:toolName` | Actualizar gobierno y metadatos de una tool |
 | `POST` | `/api/app/tools/sync` | Sincronizar el catálogo del namespace |
 | `GET/POST` | `/api/app/policies` | Policies registradas por tipo |
 | `GET/POST` | `/api/app/agents` | Definiciones de agentes |
 | `PUT` | `/api/app/agents/:agentName` | Actualizar modelo, parámetros, tools y policies de un agente |
 | `GET/PUT` | `/api/app/agents/:agentName/tools` | Consultar o reemplazar la allow-list |
 | `GET` | `/api/app/agents/:agentName/catalog` | Catálogo efectivo entregado al agente |
-| `GET/PUT` | `/api/app/tools/:toolName/policies` | Auditorías asignadas a una tool |
 | `GET` | `/api/app/audit-events` | Historial persistente de ejecuciones |
 | `POST` | `/api/app/agents/:agentName/test` | Inferencia de prueba mediante el agente |
 
@@ -406,6 +412,48 @@ webgateway/shared/             # configuración del Gateway
 
 Todo el código ObjectScript se carga desde `iris/src`. AI Hub es una
 dependencia obligatoria de la solución.
+
+## Servidores MCP externos
+
+El despliegue incluye un IRIS independiente llamado `iris-mcp`, construido con
+la misma imagen que el backend y con datos persistentes propios. Publica un
+servicio nativo `%AI.MCP.Service` con `SearchInventory` y `GetDailyPrices`.
+La única clase persistente de la demostración externa es `External.Demo.Price`,
+con nombre de producto, fecha, precio y moneda, sin relaciones. Las consultas
+usan el mismo índice iFind que `App.Demo.Inventory`. Los precios son ficticios en EUR.
+El contenedor
+`iris-mcp-transport` utiliza el binario oficial `iris-mcp-server` para exponerlo
+por HTTP MCP en `http://localhost:8082/mcp` (solo en el equipo local).
+
+La consola dispone de la pestaña **Servidores MCP** para registrar y editar
+endpoints externos, su autenticación y sus estados de gobierno. Desde el
+backend, el endpoint de pruebas es `http://iris-mcp-transport:8080/mcp`. Los
+tokens se indican mediante referencias `secret://...` de Secure Wallet.
+
+En cada servidor aprobado y habilitado, **Descubrir herramientas** consulta el
+catálogo MCP completo, incluida su paginación. **Ver herramientas** permite
+buscar por nombre o descripción e inspeccionar sus parámetros. Las herramientas
+se incorporan al catálogo de tools con su servidor de origen y se pueden
+seleccionar al editar cualquier agente. Solo se exponen los métodos asignados
+a ese agente y se aplican sus policies de autorización y auditoría.
+
+La sincronización conserva nombres locales, asignaciones y estados de gobierno.
+Las herramientas nuevas quedan aprobadas y habilitadas, igual que en el catálogo
+local. Las que desaparecen del servidor se marcan no disponibles. Si falla la
+consulta, se conserva el catálogo anterior. Deshabilitar o suspender un servidor
+impide utilizar sus tools; cambiar su URL o autenticación exige redescubrirlas.
+
+La API ofrece `GET/POST /api/app/mcp-servers` y
+`PUT /api/app/mcp-servers/:serverName`, además de
+`POST /api/app/mcp-servers/:serverName/tools/sync` para descubrir y
+`GET /api/app/mcp-servers/:serverName/tools` para consultar las tools importadas.
+Los servidores se persisten en `App.Governance.MCPServer` y las herramientas en
+`App.Governance.Tool`, distinguiendo el origen local o MCP. El cliente usa
+Streamable HTTP, respuestas JSON o SSE y sesiones MCP breves. Las conexiones
+HTTPS verifican el certificado con la configuración TLS `APP.MCP.Client`.
+
+Consulta [iris-mcp/README.md](iris-mcp/README.md) para la configuración y los
+puertos de la instancia externa.
 
 ## Desarrollo del frontend
 

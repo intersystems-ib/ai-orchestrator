@@ -4,6 +4,7 @@
 *.code-workspace
 
 iris/shared/durable*/
+iris-mcp/shared/durable*/
 webgateway/shared/durable/
 frontend/node_modules/
 frontend/dist/
