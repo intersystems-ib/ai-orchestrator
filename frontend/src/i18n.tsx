@@ -13,6 +13,7 @@ const storageKey = "ai-governance-language";
 const es: Record<string, string> = {
   "mcp.discover": "Descubrir herramientas",
   "mcp.viewTools": "Ver herramientas",
+  "mcp.closeTools": "Cerrar",
   "mcp.toolsTitle": "Herramientas de {server}",
   "mcp.searchTools": "Buscar por nombre o descripción",
   "mcp.tool": "Herramienta",
@@ -39,7 +40,7 @@ const es: Record<string, string> = {
   "mcp.secret": "Referencia al token en Secure Wallet",
   "mcp.empty": "Todavía no hay servidores MCP registrados.",
   "mcp.scope": "Configura el servidor y descubre sus herramientas para asignarlas a tus agentes.",
-  "mcp.endpointHelp": "Usa una URL accesible desde el backend IRIS. El servidor de pruebas está disponible en http://iris-mcp-transport:8080/mcp.",
+  "mcp.endpointHelp": "La URL debe ser accesible.",
   "language.label": "Idioma",
   "language.es": "Español",
   "language.en": "English",
@@ -207,6 +208,7 @@ const es: Record<string, string> = {
 const en: Record<string, string> = {
   "mcp.discover": "Discover tools",
   "mcp.viewTools": "View tools",
+  "mcp.closeTools": "Close",
   "mcp.toolsTitle": "Tools from {server}",
   "mcp.searchTools": "Search by name or description",
   "mcp.tool": "Tool",
@@ -233,7 +235,7 @@ const en: Record<string, string> = {
   "mcp.secret": "Secure Wallet token reference",
   "mcp.empty": "No MCP servers have been registered yet.",
   "mcp.scope": "Configure the server and discover its tools to assign them to your agents.",
-  "mcp.endpointHelp": "Use a URL reachable from the IRIS backend. The test server is available at http://iris-mcp-transport:8080/mcp.",
+  "mcp.endpointHelp": "The URL must be reachable.",
   ...es,
   "language.label": "Language", "language.es": "Español", "language.en": "English",
   "nav.overview": "AI Governance", "nav.chat": "Agent chat", "nav.models": "Model catalog", "nav.tools": "AI Hub tools", "nav.policies": "Policies", "nav.agents": "Agents", "nav.users": "AI users", "nav.audit": "Audit",

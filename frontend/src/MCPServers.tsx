@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "./i18n";
 
 type Server = {
@@ -53,8 +53,8 @@ export function MCPServersView({request, refresh}: {request: Request; refresh: (
   }
   return <>
     <div className="actions"><p>{t("mcp.description")}</p><button className="primary" onClick={() => setEditing(null)}>+ {t("mcp.register")}</button></div>
-    {error && <div className="alert">{error}<button onClick={() => void reload()}>{t("common.retry")}</button></div>}
-    {notice && <p role="status">{notice}</p>}
+    {error && !selected && <div className="alert">{error}<button onClick={() => void reload()}>{t("common.retry")}</button></div>}
+    {notice && !selected && <p role="status">{notice}</p>}
     <section className="panel table-panel"><table><thead><tr>{["server", "endpoint", "auth", "state", "actions"].map(key => <th key={key}>{t(`mcp.${key}`)}</th>)}</tr></thead>
       <tbody>{servers.map(server => <tr key={server.id}>
         <td><strong>{server.displayName}</strong><small>{server.name}</small><small>{server.description}</small></td>
@@ -64,15 +64,47 @@ export function MCPServersView({request, refresh}: {request: Request; refresh: (
         <td><button className="secondary" disabled={working} onClick={() => setEditing(server)}>{t("common.edit")}</button><button className="secondary" disabled={working} onClick={() => void loadTools(server, false)}>{t("mcp.viewTools")}</button><button className="primary" disabled={working || server.status !== "approved" || !server.enabled} onClick={() => void loadTools(server, true)}>{t(working && selected?.name === server.name ? "resource.syncing" : "mcp.discover")}</button></td>
       </tr>)}{!servers.length && <tr><td colSpan={5} className="empty">{t(loading ? "common.connecting" : "mcp.empty")}</td></tr>}</tbody>
     </table></section>
-    {selected && <section className="panel table-panel">
-      <div className="section-title"><h3>{t("mcp.toolsTitle", {server: selected.displayName})}</h3><p>{t("mcp.assignmentHelp")}</p><label className="field"><span>{t("mcp.searchTools")}</span><input type="search" value={search} onChange={event => setSearch(event.target.value)}/></label></div>
+    {selected && <ToolsDialog title={t("mcp.toolsTitle", {server: selected.displayName})} close={() => setSelected(null)}>
+      {error && <div className="alert">{error}<button disabled={working} onClick={() => void loadTools(selected, false)}>{t("common.retry")}</button></div>}
+      {notice && <p role="status">{notice}</p>}
+      <p id="mcp-tools-help">{t("mcp.assignmentHelp")}</p>
+      <label className="field"><span>{t("mcp.searchTools")}</span><input type="search" value={search} onChange={event => setSearch(event.target.value)}/></label>
+      <section className="panel table-panel mcp-tools-table" aria-busy={working}>
       <table><thead><tr><th>{t("mcp.tool")}</th><th>{t("mcp.schema")}</th><th>{t("mcp.state")}</th></tr></thead><tbody>
         {filtered.map(tool => <tr key={tool.name}><td><strong>{tool.remoteName}</strong><small>{tool.description}</small><code>{tool.name}</code></td><td><details><summary>{t("mcp.viewSchema")}</summary><pre style={{whiteSpace: "pre-wrap", overflowWrap: "anywhere"}}>{JSON.stringify(JSON.parse(tool.schema), null, 2)}</pre></details></td><td><span className={`status status-${tool.enabled ? tool.status : "suspended"}`}><i/>{t(tool.enabled ? `status.${tool.status}` : "status.disabled")}</span>{!tool.available && <small>{t("mcp.unavailable")}</small>}</td></tr>)}
         {!filtered.length && <tr><td colSpan={3} className="empty">{t(working ? "common.connecting" : tools.length ? "mcp.noMatches" : "mcp.noTools")}</td></tr>}
       </tbody></table>
-    </section>}
+      </section>
+    </ToolsDialog>}
     {editing !== undefined && <ServerDialog server={editing} request={request} close={() => setEditing(undefined)} saved={savedServer}/>}
   </>;
+}
+
+function ToolsDialog({title, close, children}: {title: string; close: () => void; children: ReactNode}) {
+  const {t} = useI18n();
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current!;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+  return <dialog ref={dialogRef} className="dialog mcp-tools-dialog" aria-labelledby="mcp-tools-title" aria-describedby="mcp-tools-help" onClose={event => {
+    if (!event.currentTarget.open) close();
+  }} onClick={event => {
+    if (event.target !== event.currentTarget) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
+  }}>
+    <button className="dialog-x" onClick={close} aria-label={t("mcp.closeTools")}>×</button>
+    <h2 id="mcp-tools-title">{title}</h2>
+    {children}
+    <div className="dialog-actions"><button className="secondary" onClick={close}>{t("mcp.closeTools")}</button></div>
+  </dialog>;
 }
 
 function ServerDialog({server, request, close, saved}: {server: Server | null; request: Request; close: () => void; saved: () => Promise<void>}) {
