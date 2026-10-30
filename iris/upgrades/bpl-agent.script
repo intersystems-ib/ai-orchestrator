@@ -1,0 +1,11 @@
+zn "APP"
+set sc=$SYSTEM.OBJ.Load("/opt/irisapp/src/App/Interop/Message/ChatRequest.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=$SYSTEM.OBJ.Load("/opt/irisapp/src/App/Interop/LLMOperation.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=$SYSTEM.OBJ.Load("/opt/irisapp/src/App/Interop/ContextSearch.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=$SYSTEM.OBJ.Load("/opt/irisapp/src/App/Interop/AgentOperation.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "BPL_AGENT_UPGRADE_OK",!
+halt

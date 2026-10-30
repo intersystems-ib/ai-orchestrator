@@ -1,4 +1,4 @@
-# AI Governance Hub
+# AI Orchestrator
 
 **English** | [Español](README_es.md)
 
@@ -66,11 +66,11 @@ REST API ──> Business Service ──> Business Operation ──> %AI.Agent
 
 ## Interoperability production
 
-`App.Interop.Production` is the mandatory path for every LLM call. The API
+The console uses `App.Interop.Production` as the mandatory LLM call path. The API
 creates an `App.Interop.Message.ChatRequest` and synchronously submits it to the
 `AI Governance API Service` Business Service. The service forwards the message
-to the `AI Hub LLM Operation` Business Operation, the only component allowed to
-materialize and execute an AI Hub agent.
+to the `AI Hub LLM Operation` Business Operation. Its governed execution path is
+shared with `App.Interop.AgentOperation`, which exposes agents to BPL processes.
 
 IRIS persists request and response headers and bodies in the Message Bank. Each
 request includes a `RequestId`, JWT user, agent, conversation, purpose, and
@@ -78,10 +78,54 @@ timestamp. The response retains status, error, duration, and result. The same
 `RequestId` is propagated to functional chat messages and tool audit events,
 which correlates the HTTP, interoperability, agent, and tool layers.
 
-Identity is not obtained from `$username` inside the operation. The JWT subject
+For REST calls, identity is not obtained from `$username`. The JWT subject
 validated by the API travels explicitly in the message and is installed in the
 job-local context before policies are evaluated. The production is configured
 for automatic startup during bootstrap.
+
+### Agents as BPL Business Operations
+
+Add `App.Interop.AgentOperation` to a production. **AgentName** is its only
+application-specific setting, with a portal selector listing approved, enabled
+agents from the current namespace. Multiple operation instances can select
+different agents. Standard interoperability settings remain available.
+
+Send the prompt in `Ens.StringRequest.StringValue` and read the plain-text reply
+from `Ens.StringResponse.StringValue`. Each request starts an independent
+conversation. The model, instructions, tools and policies come from the stored
+agent definition.
+
+This path uses the production job's IRIS identity (`$username`, usually
+`_Ensemble`). Enable that identity in **AI Users** and assign it the selected
+agent. No permissions are granted automatically. The text message cannot
+override the identity or select a different agent.
+
+```xml
+<call name="Ask agent" target="Configured agent operation" async="0" timeout="300">
+  <request type="Ens.StringRequest">
+    <assign property="callrequest.StringValue" value="request.StringValue" action="set" />
+  </request>
+  <response type="Ens.StringResponse">
+    <assign property="response.StringValue" value="callresponse.StringValue" action="set" />
+  </response>
+</call>
+```
+
+Change the source and destination assignments to match your own BPL contract.
+The operation validates agent availability at startup and for every request.
+Failures return an error `%Status` for BPL fault handling. Conversations, policies
+and tool audits use the shared governed executor. The production trace retains
+the original string request and response.
+
+After rebuilding and starting `iris`, update an existing durable namespace with:
+
+```powershell
+Get-Content -Raw iris/upgrades/bpl-agent.script | docker compose exec -T iris iris session IRIS
+```
+
+`iris/tests/bpl-agent/` contains a deterministic local mock LLM and a real BPL
+integration test. Run it only in a disposable instance: it creates test registry
+records and changes the active production.
 
 ## Secure model configuration
 

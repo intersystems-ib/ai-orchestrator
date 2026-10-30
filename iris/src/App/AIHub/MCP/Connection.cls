@@ -14,7 +14,7 @@ Method Open(endpoint As %String, token As %String = "") As %Status
 {
     set ..Endpoint = endpoint, ..Token = token
     set sc = ..Call("initialize", {"protocolVersion":"2025-03-26", "capabilities":{},
-        "clientInfo":{"name":"AI Governance Hub", "version":"0.1.0"}}, .result)
+        "clientInfo":{"name":"AI Orchestrator", "version":"0.1.0"}}, .result)
     if $$$ISERR(sc) quit sc
     set ..Protocol = result.%Get("protocolVersion", "")
     if '$listfind($listbuild("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"), ..Protocol) {

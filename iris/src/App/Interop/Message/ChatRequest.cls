@@ -8,6 +8,6 @@ Property Message As %String(MAXLEN = "") [ Required ];
 Property ConversationId As %String(MAXLEN = 64);
 Property Username As %String(MAXLEN = 128) [ Required ];
 Property RequestedAt As %TimeStamp;
-Property Purpose As %String(VALUELIST = ",chat,test") [ InitialExpression = "chat" ];
+Property Purpose As %String(VALUELIST = ",chat,test,bpl") [ InitialExpression = "chat" ];
 
 }

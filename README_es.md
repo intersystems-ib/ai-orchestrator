@@ -1,4 +1,4 @@
-# AI Governance Hub
+# AI Orchestrator
 
 [English](README.md) | **Español**
 
@@ -66,11 +66,11 @@ API REST ──> Business Service ──> Business Operation ──> %AI.Agent
 
 ## Producción de interoperabilidad
 
-`App.Interop.Production` es la ruta obligatoria para cualquier llamada a un
-LLM. La API crea un `App.Interop.Message.ChatRequest` y lo entrega de forma
+La consola utiliza `App.Interop.Production` como ruta obligatoria para las
+llamadas a un LLM. La API crea un `App.Interop.Message.ChatRequest` y lo entrega de forma
 síncrona al Business Service `AI Governance API Service`. Este reenvía el
-mensaje al Business Operation `AI Hub LLM Operation`, único componente que
-materializa y ejecuta el agente mediante AI Hub.
+mensaje al Business Operation `AI Hub LLM Operation`. La ejecución gobernada
+se comparte con `App.Interop.AgentOperation`, que permite usar agentes desde BPL.
 
 IRIS persiste las cabeceras y los cuerpos de petición y respuesta en el Message
 Bank. Cada petición incorpora un `RequestId`, usuario JWT, agente, conversación,
@@ -79,10 +79,65 @@ Ese mismo `RequestId` se propaga a los mensajes funcionales del chat y a las
 auditorías de tools, permitiendo correlacionar los niveles HTTP,
 interoperabilidad, agente y herramienta.
 
-La identidad no se obtiene de `$username` dentro de la operación: el sujeto JWT
+En la ruta REST, la identidad no se obtiene de `$username`: el sujeto JWT
 validado por la API viaja explícitamente en el mensaje y se instala en el
 contexto local del job antes de aplicar las policies. La producción queda
 configurada para arranque automático durante el bootstrap.
+
+### Agentes como Business Operations de BPL
+
+Añade una operación de clase `App.Interop.AgentOperation` a tu producción. Su
+único ajuste específico es **AgentName**, un selector de los agentes aprobados
+y habilitados almacenados en el namespace actual. Puedes crear varias
+operaciones de esta clase, cada una con un agente distinto. Los ajustes estándar
+de interoperabilidad, como la cola y los tiempos de espera, siguen disponibles.
+
+La entrada es `Ens.StringRequest.StringValue`, que contiene el prompt, y la
+salida `Ens.StringResponse.StringValue`, que contiene exclusivamente el texto
+de la respuesta. Cada mensaje inicia una conversación independiente. Modelo,
+instrucciones, herramientas y policies se toman de la definición del agente,
+sin repetirlos en la producción.
+
+En este caso, la identidad es el usuario IRIS del job de producción (`$username`,
+habitualmente `_Ensemble`), porque el mensaje de texto no transporta un JWT.
+Ese usuario debe estar habilitado en **Usuarios IA** y tener asignado el agente.
+La operación no concede permisos automáticamente ni acepta una identidad o un
+agente alternativo dentro del prompt.
+
+Ejemplo de actividad BPL, con una operación configurada con el nombre
+`Agente de operaciones`:
+
+```xml
+<call name="Consultar agente" target="Agente de operaciones" async="0" timeout="300">
+  <request type="Ens.StringRequest">
+    <assign property="callrequest.StringValue" value="request.StringValue" action="set" />
+  </request>
+  <response type="Ens.StringResponse">
+    <assign property="response.StringValue" value="callresponse.StringValue" action="set" />
+  </response>
+</call>
+```
+
+En un BPL con otro contrato de entrada/salida, sustituye `request.StringValue`
+y `response.StringValue` por las propiedades de tu mensaje o del contexto.
+Los fallos de autorización, agente no disponible, prompt vacío o ejecución se
+devuelven como `%Status` de error para que el BPL aplique su gestión de fallos.
+La operación comprueba el estado del agente al arrancar y en cada petición.
+
+Las llamadas conservan las policies, las conversaciones y la auditoría del
+agente. La traza de interoperabilidad contiene los mensajes de texto originales.
+El ejecutor compartido genera un `RequestId` para las conversaciones y auditorías.
+
+Para actualizar un namespace persistente ya existente, después de reconstruir
+y arrancar el servicio `iris`, carga las clases nuevas desde la imagen:
+
+```powershell
+Get-Content -Raw iris/upgrades/bpl-agent.script | docker compose exec -T iris iris session IRIS
+```
+
+La prueba en `iris/tests/bpl-agent/` utiliza un LLM simulado local y una producción
+BPL de prueba. Debe ejecutarse únicamente en una instancia desechable: crea
+usuarios, modelos y agentes de prueba y cambia la producción activa.
 
 ## Configuración segura de modelos
 

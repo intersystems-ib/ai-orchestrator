@@ -1,6 +1,6 @@
 Include %occStatus
 
-/// The only production component allowed to invoke an AI Hub agent.
+/// Governed chat operation and shared execution path for production agents.
 Class App.Interop.LLMOperation Extends Ens.BusinessOperation
 {
 
@@ -16,6 +16,13 @@ XData MessageMap
 }
 
 Method HandleChat(pRequest As App.Interop.Message.ChatRequest,
+    Output pResponse As App.Interop.Message.ChatResponse) As %Status
+{
+    quit ..Execute(pRequest, .pResponse)
+}
+
+/// Shared by the REST/chat operation and the string-based BPL operation.
+ClassMethod Execute(pRequest As App.Interop.Message.ChatRequest,
     Output pResponse As App.Interop.Message.ChatResponse) As %Status
 {
     set startedAt = $zh
