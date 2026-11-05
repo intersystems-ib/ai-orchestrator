@@ -1,0 +1,5 @@
+zn "MCP"
+set sc=##class(External.Demo.Bootstrap).Seed()
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "DEMO_PRICES_READY: ",$zdate(+$horolog,3),!
+halt

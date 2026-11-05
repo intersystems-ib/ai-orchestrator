@@ -7,19 +7,19 @@ Class App.AIHub.Bootstrap
 ClassMethod Seed() As %Status
 {
     set sc = ##class(App.AIHub.MCP.Connection).ConfigureTLS()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.AIUser WHERE Username = ?", "CSPSystem")
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
     if 'rs.%Next() {
         set sc = ##class(App.Governance.AIUser).Set(
             {"username":"CSPSystem", "enabled":true}, .ignored)
-        if $$$ISERR(sc) quit sc
+        if $$$ISERR(sc) return sc
     }
 
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.Policy WHERE Name = ?", "iris-user-access")
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
     if 'rs.%Next() {
         set payload = {
             "name":"iris-user-access",
@@ -31,12 +31,12 @@ ClassMethod Seed() As %Status
             "enabled":true
         }
         set sc = ##class(App.Governance.Policy).Create(payload, .ignored)
-        if $$$ISERR(sc) quit sc
+        if $$$ISERR(sc) return sc
     }
 
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.Policy WHERE Name = ?", "database-audit")
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
     if 'rs.%Next() {
         set payload = {
             "name":"database-audit",
@@ -48,25 +48,25 @@ ClassMethod Seed() As %Status
             "enabled":true
         }
         set sc = ##class(App.Governance.Policy).Create(payload, .ignored)
-        if $$$ISERR(sc) quit sc
+        if $$$ISERR(sc) return sc
     }
 
     set sc = ##class(App.AIHub.Upgrade.AgentAuditPolicies).Run()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
 
     set sc = ##class(App.Governance.Tool).Synchronize(.ignored)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
 
     set sc = ##class(App.Demo.Inventory).SeedDemo(.createdInventory)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set sc = ##class(App.Demo.Inventory).%BuildIndices(
         $listbuild("NameSearchIndex"))
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set sc = ##class(App.Demo.Shipment).SeedDemo(.createdShipments)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set sc = ##class(Ens.Director).SetAutoStart("App.Interop.Production")
-    if $$$ISERR(sc) quit sc
-    quit $$$OK
+    if $$$ISERR(sc) return sc
+    return $$$OK
 }
 
 }

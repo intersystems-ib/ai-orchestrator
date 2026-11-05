@@ -9,12 +9,12 @@ ClassMethod Synchronize(serverName As %String, Output result As %DynamicObject) 
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, EndpointUrl, AuthMode, BearerSecret FROM App_Governance.MCPServer " _
         "WHERE Name = ? AND Status = 'approved' AND Enabled = 1", serverName)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
-    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "MCP server is not approved and enabled")
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() return $$$ERROR($$$GeneralError, "MCP server is not approved and enabled")
     set serverId = rs.%Get("ID")
     set endpoint = rs.%Get("EndpointUrl"), authMode = rs.%Get("AuthMode"), secret = rs.%Get("BearerSecret")
     set sc = ##class(App.AIHub.MCP.Client).Execute(serverName, "tools/list", {}, .catalog)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set tools = catalog.%Get("tools")
     set created = 0, updated = 0, unavailable = 0
     kill seen
@@ -75,11 +75,11 @@ ClassMethod Synchronize(serverName As %String, Output result As %DynamicObject) 
     } catch exception {
         set sc = exception.AsStatus()
     }
-    if $$$ISERR(sc) { trollback  quit sc }
+    if $$$ISERR(sc) { trollback  return sc }
     tcommit
     set result = {"serverName":(serverName), "created":(created), "updated":(updated),
         "unavailable":(unavailable), "tools":(##class(App.Governance.Tool).ListJSON(serverName))}
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod LocalName(serverId As %Integer, remoteName As %String) As %String
@@ -90,7 +90,7 @@ ClassMethod LocalName(serverId As %Integer, remoteName As %String) As %String
         set label = label _ $select($find(allowed, character):character, 1:"_")
         if $length(label) >= 32 quit
     }
-    quit "mcp_" _ serverId _ "_" _ label _ "_" _ ..NameDigest(remoteName)
+    return "mcp_" _ serverId _ "_" _ label _ "_" _ ..NameDigest(remoteName)
 }
 
 ClassMethod NameDigest(name As %String) As %String [ Language = python ]

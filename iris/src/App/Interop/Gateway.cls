@@ -20,19 +20,19 @@ ClassMethod Send(agentName As %String, message As %String,
 
     set sc = ##class(Ens.Director).CreateBusinessService(
         "AI Governance API Service", .service)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set sc = service.ProcessInput(request, .response)
-    if $$$ISERR(sc) quit sc
-    if '$isobject(response) quit $$$ERROR($$$GeneralError, "The interoperability production returned no response")
+    if $$$ISERR(sc) return sc
+    if '$isobject(response) return $$$ERROR($$$GeneralError, "The interoperability production returned no response")
 
     set httpStatus = response.HttpStatus
-    if 'response.Success quit $$$ERROR($$$GeneralError, response.Error)
+    if 'response.Success return $$$ERROR($$$GeneralError, response.Error)
     try {
         set result = {}.%FromJSON(response.ResultJSON)
     } catch exception {
         set sc = exception.AsStatus()
     }
-    quit sc
+    return sc
 }
 
 }

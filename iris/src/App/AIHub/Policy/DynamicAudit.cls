@@ -25,7 +25,7 @@ Method %LogExecution(call As %DynamicObject, metadata As %DynamicObject,
             if policy.%Next() do ..Invoke(policy.%Get("ClassName"), call, metadata, result, duration, status)
         }
     }
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod Invoke(className As %String, call As %DynamicObject, metadata As %DynamicObject,

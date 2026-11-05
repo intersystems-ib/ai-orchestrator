@@ -41,9 +41,9 @@ ClassMethod Run(Output changedAgents As %Integer = 0) As %Status
     } catch exception {
         set sc = exception.AsStatus()
     }
-    if $$$ISERR(sc) { trollback  quit sc }
+    if $$$ISERR(sc) { trollback  return sc }
     tcommit
-    quit $$$OK
+    return $$$OK
 }
 
 }

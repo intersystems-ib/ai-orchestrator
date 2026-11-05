@@ -35,7 +35,7 @@ ClassMethod Synchronize(Output result As %DynamicObject) As %Status
 
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT Name FROM %Dictionary.CompiledClass ORDER BY Name")
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
 
     set sc = $$$OK
     while rs.%Next() {
@@ -50,12 +50,12 @@ ClassMethod Synchronize(Output result As %DynamicObject) As %Status
         set sc = ..SynchronizeClass(className, .seen, .discovered, .created, .updated)
         if $$$ISERR(sc) quit
     }
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
 
     set stale = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, Name FROM App_Governance.Tool WHERE (MCPServerName IS NULL OR MCPServerName = '') " _
         "AND (Status <> 'retired' OR Enabled <> 0)")
-    if stale.%SQLCODE < 0 quit $$$ERROR($$$SQLError, stale.%SQLCODE, stale.%Message)
+    if stale.%SQLCODE < 0 return $$$ERROR($$$SQLError, stale.%SQLCODE, stale.%Message)
     while stale.%Next() {
         if $data(seen(stale.%Get("Name"))) continue
         set item = ..%OpenId(stale.%Get("ID"))
@@ -65,7 +65,7 @@ ClassMethod Synchronize(Output result As %DynamicObject) As %Status
         if $$$ISERR(sc) quit
         set retired = retired + 1
     }
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
 
     set result = {
         "classes":(classes),
@@ -75,7 +75,7 @@ ClassMethod Synchronize(Output result As %DynamicObject) As %Status
         "retired":(retired),
         "tools":(..ListJSON())
     }
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod SynchronizeClass(className As %String, ByRef seen,
@@ -83,16 +83,16 @@ ClassMethod SynchronizeClass(className As %String, ByRef seen,
     ByRef updated As %Integer) As %Status [ Internal, Private ]
 {
     set instance = $classmethod(className, "%New")
-    if '$isobject(instance) quit $$$ERROR($$$GeneralError, "Could not instantiate %AI.Tool class: " _ className)
+    if '$isobject(instance) return $$$ERROR($$$GeneralError, "Could not instantiate %AI.Tool class: " _ className)
     set sc = $$$OK
     try {
         set catalog = instance.%Discover()
     } catch exception {
         set sc = exception.AsStatus()
     }
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set tools = catalog.%Get("tools")
-    if '$isobject(tools) quit $$$OK
+    if '$isobject(tools) return $$$OK
 
     for index = 0:1:(tools.%Size() - 1) {
         set descriptor = tools.%Get(index)
@@ -137,7 +137,7 @@ ClassMethod SynchronizeClass(className As %String, ByRef seen,
         set sc = item.%Save()
         if $$$ISERR(sc) quit
     }
-    quit sc
+    return sc
 }
 
 ClassMethod IsAvailable(name As %String, requireApproved As %Boolean = 1) As %Boolean
@@ -146,10 +146,10 @@ ClassMethod IsAvailable(name As %String, requireApproved As %Boolean = 1) As %Bo
         "SELECT t.Status, t.Enabled, t.MCPServerName, t.RemoteAvailable, " _
         "s.Status AS ServerStatus, s.Enabled AS ServerEnabled FROM App_Governance.Tool t " _
         "LEFT JOIN App_Governance.MCPServer s ON s.Name = t.MCPServerName WHERE t.Name = ?", name)
-    if 'rs.%Next() quit 0
-    if requireApproved, (rs.%Get("Status") '= "approved") || 'rs.%Get("Enabled") quit 0
-    if rs.%Get("MCPServerName") = "" quit 1
-    quit (rs.%Get("RemoteAvailable") = 1) && (rs.%Get("ServerStatus") = "approved") && (rs.%Get("ServerEnabled") = 1)
+    if 'rs.%Next() return 0
+    if requireApproved, (rs.%Get("Status") '= "approved") || 'rs.%Get("Enabled") return 0
+    if rs.%Get("MCPServerName") = "" return 1
+    return (rs.%Get("RemoteAvailable") = 1) && (rs.%Get("ServerStatus") = "approved") && (rs.%Get("ServerEnabled") = 1)
 }
 
 ClassMethod ListJSON(serverName As %String = "") As %DynamicArray
@@ -183,26 +183,26 @@ ClassMethod ListJSON(serverName As %String = "") As %DynamicArray
             "createdAt":(rs.%Get("CreatedAt"))
         })
     }
-    quit output
+    return output
 }
 
 ClassMethod Update(name As %String, payload As %DynamicObject,
     Output result As %DynamicObject) As %Status
 {
     if payload.%IsDefined("auditPolicies") {
-        quit $$$ERROR($$$GeneralError, "Audit policies must be configured on the agent, not on the tool")
+        return $$$ERROR($$$GeneralError, "Audit policies must be configured on the agent, not on the tool")
     }
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.Tool WHERE Name = ?", name)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
-    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Tool does not exist: " _ name)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() return $$$ERROR($$$GeneralError, "Tool does not exist: " _ name)
     set item = ..%OpenId(rs.%Get("ID"))
 
     if payload.%Get("className", item.ClassName) '= item.ClassName {
-        quit $$$ERROR($$$GeneralError, "The discovered tool class cannot be changed")
+        return $$$ERROR($$$GeneralError, "The discovered tool class cannot be changed")
     }
     if payload.%Get("methodName", item.MethodName) '= item.MethodName {
-        quit $$$ERROR($$$GeneralError, "The discovered tool method cannot be changed")
+        return $$$ERROR($$$GeneralError, "The discovered tool method cannot be changed")
     }
 
     tstart
@@ -211,7 +211,7 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     set item.Status = payload.%Get("status", item.Status)
     set item.Enabled = payload.%Get("enabled", item.Enabled)
     set sc = item.%Save()
-    if $$$ISERR(sc) { trollback  quit sc }
+    if $$$ISERR(sc) { trollback  return sc }
     tcommit
     set result = {
         "id":(item.%Id()), "name":(item.Name),
@@ -225,7 +225,7 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
         "status":(item.Status), "enabled":(item.Enabled),
         "createdAt":(item.CreatedAt)
     }
-    quit $$$OK
+    return $$$OK
 }
 
 }

@@ -100,7 +100,7 @@ Method Run() As %Integer
     set stopped = ##class(Ens.Director).StopProduction(30, 1)
     do ##class(App.AIHub.RuntimeContext).Clear()
     write "BPL_AGENT_FAILURES=", ..Failures, !
-    quit ..Failures
+    return ..Failures
 }
 
 }

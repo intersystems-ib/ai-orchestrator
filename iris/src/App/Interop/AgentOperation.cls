@@ -14,18 +14,18 @@ Property AgentName As %String(MAXLEN = 120);
 Method OnInit() As %Status
 {
     set sc = ##super()
-    if $$$ISERR(sc) quit sc
-    quit ..ValidateAgent(..AgentName)
+    if $$$ISERR(sc) return sc
+    return ..ValidateAgent(..AgentName)
 }
 
 ClassMethod ValidateAgent(agentName As %String) As %Status
 {
-    if agentName = "" quit $$$ERROR($$$GeneralError, "AgentName must select an AI Orchestrator agent")
+    if agentName = "" return $$$ERROR($$$GeneralError, "AgentName must select an AI Orchestrator agent")
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.Agent WHERE Name = ? AND Status = 'approved' AND Enabled = 1", agentName)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
-    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "The configured agent is not approved and enabled: " _ agentName)
-    quit $$$OK
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() return $$$ERROR($$$GeneralError, "The configured agent is not approved and enabled: " _ agentName)
+    return $$$OK
 }
 
 XData MessageMap
@@ -43,9 +43,9 @@ Method HandlePrompt(pRequest As Ens.StringRequest,
 {
     set pResponse = ##class(Ens.StringResponse).%New()
     set sc = ..ValidateAgent(..AgentName)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     if $zstrip(pRequest.StringValue, "<>W") = "" {
-        quit $$$ERROR($$$GeneralError, "The prompt in StringValue cannot be empty")
+        return $$$ERROR($$$GeneralError, "The prompt in StringValue cannot be empty")
     }
 
     set request = ##class(App.Interop.Message.ChatRequest).%New()
@@ -56,11 +56,11 @@ Method HandlePrompt(pRequest As Ens.StringRequest,
     set request.RequestedAt = $zdatetime($horolog, 3)
     set request.Purpose = "bpl"
     set sc = ##class(App.Interop.LLMOperation).Execute(request, .result)
-    if $$$ISERR(sc) quit sc
-    if 'result.Success quit $$$ERROR($$$GeneralError, result.Error)
+    if $$$ISERR(sc) return sc
+    if 'result.Success return $$$ERROR($$$GeneralError, result.Error)
     set content = {}.%FromJSON(result.ResultJSON)
     set pResponse.StringValue = content.%Get("content")
-    quit $$$OK
+    return $$$OK
 }
 
 }

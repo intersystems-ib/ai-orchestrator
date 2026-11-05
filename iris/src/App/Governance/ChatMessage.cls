@@ -19,7 +19,7 @@ ClassMethod Add(conversationId As %String, role As %String, content As %String,
     set item.Content = content
     set item.RequestId = requestId
     set item.CreatedAt = $zdatetime($horolog, 3)
-    quit item.%Save()
+    return item.%Save()
 }
 
 ClassMethod ListJSON(conversationId As %String) As %DynamicArray
@@ -28,7 +28,7 @@ ClassMethod ListJSON(conversationId As %String) As %DynamicArray
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, ""Role"" AS MessageRole, Content, RequestId, CreatedAt FROM App_Governance.ChatMessage " _
         "WHERE ConversationId = ? ORDER BY ID", conversationId)
-    if rs.%SQLCODE < 0 quit output
+    if rs.%SQLCODE < 0 return output
     while rs.%Next() {
         do output.%Push({
             "id":(rs.%Get("ID")), "role":(rs.%Get("MessageRole")),
@@ -36,7 +36,7 @@ ClassMethod ListJSON(conversationId As %String) As %DynamicArray
             "createdAt":(rs.%Get("CreatedAt"))
         })
     }
-    quit output
+    return output
 }
 
 }

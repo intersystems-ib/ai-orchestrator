@@ -189,6 +189,22 @@ services:
     networks:
       - app-network
 
+  demo:
+    profiles: ["demo"]
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-demo
+    build:
+      context: ./demo
+    ports:
+      - "127.0.0.1:${DEMO_PORT:-3030}:3030"
+    environment:
+      VITE_ORCHESTRATOR_URL: http://localhost:${FRONTEND_PORT:-5173}
+      VITE_IRIS_PORTAL_URL: http://localhost:${IRIS_WEB_PORT:-52773}/csp/sys/UtilHome.csp
+      VITE_MCP_PORTAL_URL: http://localhost:${IRIS_MCP_WEB_PORT:-52774}/csp/sys/UtilHome.csp
+      DEMO_PROXY_TARGET: http://frontend:80
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge

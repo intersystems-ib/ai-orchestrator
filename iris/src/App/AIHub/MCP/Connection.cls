@@ -15,12 +15,12 @@ Method Open(endpoint As %String, token As %String = "") As %Status
     set ..Endpoint = endpoint, ..Token = token
     set sc = ..Call("initialize", {"protocolVersion":"2025-03-26", "capabilities":{},
         "clientInfo":{"name":"AI Orchestrator", "version":"0.1.0"}}, .result)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set ..Protocol = result.%Get("protocolVersion", "")
     if '$listfind($listbuild("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"), ..Protocol) {
-        quit $$$ERROR($$$GeneralError, "Unsupported MCP protocol version")
+        return $$$ERROR($$$GeneralError, "Unsupported MCP protocol version")
     }
-    quit ..Call("notifications/initialized", {}, .ignored, 1)
+    return ..Call("notifications/initialized", {}, .ignored, 1)
 }
 
 Method Call(method As %String, parameters As %DynamicObject,
@@ -33,15 +33,15 @@ Method Call(method As %String, parameters As %DynamicObject,
     set request = ..Request()
     do request.EntityBody.Write($zconvert(message.%ToJSON(), "O", "UTF8"))
     set sc = request.Post(..Endpoint)
-    if $$$ISERR(sc) quit $$$ERROR($$$GeneralError, "MCP connection failed")
+    if $$$ISERR(sc) return $$$ERROR($$$GeneralError, "MCP connection failed")
     set response = request.HttpResponse
-    if '$isobject(response) quit $$$ERROR($$$GeneralError, "MCP server returned no HTTP response")
-    if response.StatusCode < 200 || (response.StatusCode >= 300) quit $$$ERROR($$$GeneralError, "MCP HTTP " _ response.StatusCode)
+    if '$isobject(response) return $$$ERROR($$$GeneralError, "MCP server returned no HTTP response")
+    if response.StatusCode < 200 || (response.StatusCode >= 300) return $$$ERROR($$$GeneralError, "MCP HTTP " _ response.StatusCode)
     set session = response.GetHeader("Mcp-Session-Id")
     if session '= "" set ..SessionId = session
-    if notification quit $$$OK
+    if notification return $$$OK
     set maximum = 2097152
-    if response.Data.Size > maximum quit $$$ERROR($$$GeneralError, "MCP response exceeds the size limit")
+    if response.Data.Size > maximum return $$$ERROR($$$GeneralError, "MCP response exceeds the size limit")
     set raw = response.Data.Read(maximum)
     set contentHeader = $zconvert(response.GetHeader("Content-Type"), "L")
     // IRIS decodes JSON as UTF-8, but SSE defaults to Latin-1 without charset.
@@ -51,11 +51,11 @@ Method Call(method As %String, parameters As %DynamicObject,
     set contentType = $zstrip($piece(contentHeader, ";", 1), "<>W")
     if contentType = "application/json" {
         set sc = ..ParseResult(raw, .result)
-        if $$$ISERR(sc) quit sc
-        if '$isobject(result) quit $$$ERROR($$$GeneralError, "MCP server returned no matching response")
-        quit $$$OK
+        if $$$ISERR(sc) return sc
+        if '$isobject(result) return $$$ERROR($$$GeneralError, "MCP server returned no matching response")
+        return $$$OK
     }
-    if contentType '= "text/event-stream" quit $$$ERROR($$$GeneralError, "Unsupported MCP response content type")
+    if contentType '= "text/event-stream" return $$$ERROR($$$GeneralError, "Unsupported MCP response content type")
     set data = ""
     for lineNumber = 1:1:$length(raw, $char(10)) {
         set line = $translate($piece(raw, $char(10), lineNumber), $char(13), "")
@@ -72,9 +72,9 @@ Method Call(method As %String, parameters As %DynamicObject,
             set data = data _ $select(data="":"", 1:$char(10)) _ part
         }
     }
-    if $$$ISERR(sc) quit sc
-    if '$isobject(result) quit $$$ERROR($$$GeneralError, "MCP server returned no matching response")
-    quit $$$OK
+    if $$$ISERR(sc) return sc
+    if '$isobject(result) return $$$ERROR($$$GeneralError, "MCP server returned no matching response")
+    return $$$OK
 }
 
 Method ParseResult(raw As %String, Output result As %DynamicObject) As %Status [ Private ]
@@ -98,7 +98,7 @@ Method ParseResult(raw As %String, Output result As %DynamicObject) As %Status [
     } catch exception {
         set sc = exception.AsStatus()
     }
-    quit sc
+    return sc
 }
 
 Method ListTools(Output result As %DynamicObject) As %Status
@@ -137,10 +137,10 @@ Method ListTools(Output result As %DynamicObject) As %Status
         set cursors(cursor) = 1
         set parameters = {"cursor":(cursor)}
     }
-    if $$$ISERR(sc) quit sc
-    if 'complete quit $$$ERROR($$$GeneralError, "MCP catalog exceeds the page limit")
+    if $$$ISERR(sc) return sc
+    if 'complete return $$$ERROR($$$GeneralError, "MCP catalog exceeds the page limit")
     set result = {"tools":(tools)}
-    quit $$$OK
+    return $$$OK
 }
 
 Method Request() As %Net.HttpRequest [ Private ]
@@ -153,7 +153,7 @@ Method Request() As %Net.HttpRequest [ Private ]
     if ..Token '= "" do request.SetHeader("Authorization", "Bearer " _ ..Token)
     if ..SessionId '= "" do request.SetHeader("Mcp-Session-Id", ..SessionId)
     if ..Protocol '= "" do request.SetHeader("MCP-Protocol-Version", ..Protocol)
-    quit request
+    return request
 }
 
 Method Close()
@@ -173,11 +173,11 @@ ClassMethod ConfigureTLS() As %Status
 {
     new $namespace
     set $namespace = "%SYS"
-    if ##class(Security.SSLConfigs).Exists("APP.MCP.Client") quit $$$OK
+    if ##class(Security.SSLConfigs).Exists("APP.MCP.Client") return $$$OK
     set properties("Enabled") = 1, properties("Type") = 0
     set properties("VerifyPeer") = 2
     set properties("CAFile") = "/etc/ssl/certs/ca-certificates.crt"
-    quit ##class(Security.SSLConfigs).Create("APP.MCP.Client", .properties)
+    return ##class(Security.SSLConfigs).Create("APP.MCP.Client", .properties)
 }
 
 }

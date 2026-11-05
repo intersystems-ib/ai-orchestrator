@@ -10,8 +10,8 @@ ClassMethod Execute(serverName As %String, method As %String,
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.MCPServer WHERE Name = ? " _
         "AND Status = 'approved' AND Enabled = 1", serverName)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
-    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "MCP server is not approved and enabled: " _ serverName)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() return $$$ERROR($$$GeneralError, "MCP server is not approved and enabled: " _ serverName)
     set server = ##class(App.Governance.MCPServer).%OpenId(rs.%Get("ID"))
     set token = ""
     if server.AuthMode = "bearer" {
@@ -20,8 +20,8 @@ ClassMethod Execute(serverName As %String, method As %String,
         } catch exception {
             set sc = exception.AsStatus()
         }
-        if $$$ISERR(sc) quit $$$ERROR($$$GeneralError, "Could not resolve the MCP server token from Secure Wallet")
-        if token = "" quit $$$ERROR($$$GeneralError, "The MCP server token is empty")
+        if $$$ISERR(sc) return $$$ERROR($$$GeneralError, "Could not resolve the MCP server token from Secure Wallet")
+        if token = "" return $$$ERROR($$$GeneralError, "The MCP server token is empty")
     }
     set connection = ##class(App.AIHub.MCP.Connection).%New()
     set sc = $$$OK
@@ -40,7 +40,7 @@ ClassMethod Execute(serverName As %String, method As %String,
         set sc = exception.AsStatus()
     }
     do connection.Close()
-    quit sc
+    return sc
 }
 
 }

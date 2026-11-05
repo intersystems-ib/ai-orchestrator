@@ -1,11 +1,58 @@
 # AI Orchestrator
 
+## Agent delegation
+
+When creating or editing an agent, select its **Agents available for delegation**
+alongside its tools and policies. The `delegates` array in an agent definition
+contains the logical names of approved, enabled registered agents:
+
+```json
+{"delegates":["logistics-agent","pricing-agent"]}
+```
+
+Each assignment creates a runtime tool accepting a `prompt`. The specialist uses
+its own model, instructions, tools, policies and independent conversation. The
+current user must be authorized for both agents. Each agent's configured audit
+policies apply, with the same RequestId correlating their calls. Delegation does
+not grant access or automatically share the caller's conversation.
+
+Self references and cycles are rejected. Runtime limits are three delegation
+levels, sixteen delegated calls per request and a 120-second wait per invocation.
+Specialists execute in independent IRIS jobs without requiring BPL or an active
+interoperability production.
+
+For an existing durable namespace, rebuild/recreate `iris` and `frontend`, then load
+the updated classes (existing definitions and data are preserved):
+
+```powershell
+docker compose up -d --build iris frontend
+Get-Content -Raw iris/upgrades/agent-delegation.script | docker compose exec -T iris iris session IRIS
+```
+
+See `iris/tests/delegation/README.md` for the isolated integration test with a local
+mock provider.
+
 **English** | [Español](README_es.md)
 
 An MVP for governing and composing agents on top of the
 [InterSystems AI Hub ObjectScript SDK](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk).
 The Docker architecture includes IRIS, Web Gateway, a React console served by
 Nginx, and two optional local llama.cpp servers.
+
+## Introductory Slidev presentation and demonstration
+
+The optional Docker `demo` profile adds a Spanish presentation with speaker
+notes, definitions of agents, tools, LLMs and MCP servers, an introduction to
+AI Hub and a simple AI Orchestrator query:
+
+```powershell
+docker compose --profile demo up -d --build demo
+```
+
+Open [http://localhost:3030](http://localhost:3030). This service does not start the
+backend or modify its catalog. See [demo/README.md](demo/README.md) for preparation,
+the agent setup and local editing. The frontend supports section links
+such as `/#agents` and `/#mcp`.
 
 ## Capabilities
 
@@ -322,7 +369,7 @@ Method SearchInventory(
         "SELECT ID, Sku, Name, Stock FROM App_Demo.Inventory " _
         "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
         "ORDER BY Name", name)
-    quit ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
+    return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }
 }
 ```

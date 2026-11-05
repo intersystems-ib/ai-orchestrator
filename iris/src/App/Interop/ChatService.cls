@@ -10,7 +10,7 @@ Method OnProcessInput(pInput As App.Interop.Message.ChatRequest,
     Output pOutput As App.Interop.Message.ChatResponse,
     ByRef pHint As %String) As %Status
 {
-    quit ..SendRequestSync("AI Hub LLM Operation", pInput, .pOutput, 300,
+    return ..SendRequestSync("AI Hub LLM Operation", pInput, .pOutput, 300,
         "Governed AI Hub request " _ pInput.RequestId)
 }
 

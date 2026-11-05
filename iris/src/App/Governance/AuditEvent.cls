@@ -32,7 +32,7 @@ ClassMethod Record(agentName As %String, policyName As %String, call As %Dynamic
     set item.DurationMs = duration
     if $$$ISERR(status) set item.Error = $extract($SYSTEM.Status.GetErrorText(status), 1, 2000)
     set item.CreatedAt = $zdatetime($horolog, 3)
-    quit item.%Save()
+    return item.%Save()
 }
 
 ClassMethod ListJSON(limit As %Integer = 100) As %DynamicArray
@@ -44,7 +44,7 @@ ClassMethod ListJSON(limit As %Integer = 100) As %DynamicArray
         "SELECT TOP ? ID, AgentName, RequestId, ToolName, PolicyName, Arguments, ResultPreview, " _
         "Success, DurationMs, Error, CreatedAt FROM App_Governance.AuditEvent " _
         "ORDER BY CreatedAt DESC")
-    if $$$ISERR(sc) quit output
+    if $$$ISERR(sc) return output
     set rs = statement.%Execute(limit)
     while rs.%Next() {
         do output.%Push({
@@ -56,7 +56,7 @@ ClassMethod ListJSON(limit As %Integer = 100) As %DynamicArray
             "error":(rs.%Get("Error")), "createdAt":(rs.%Get("CreatedAt"))
         })
     }
-    quit output
+    return output
 }
 
 }

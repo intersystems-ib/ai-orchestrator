@@ -18,13 +18,13 @@ ClassMethod Providers() As %DynamicArray
     do providers.%Push({"id":"kimi","name":"Kimi / Moonshot AI","experimental":true,"fields":["api_key","base_url"]})
     do providers.%Push({"id":"openrouter","name":"OpenRouter","experimental":true,"fields":["api_key","site_url","site_name","base_url"]})
     do providers.%Push({"id":"ollama","name":"Ollama","experimental":true,"fields":["base_url"]})
-    quit providers
+    return providers
 }
 
 ClassMethod IsProviderSupported(provider As %String) As %Boolean
 {
     set supported = ",openai,anthropic,gemini,bedrock,vertex,meta,nim,xai,deepseek,kimi,openrouter,ollama,"
-    quit ($FIND(supported, "," _ provider _ ",") > 0)
+    return ($FIND(supported, "," _ provider _ ",") > 0)
 }
 
 }

@@ -5,20 +5,20 @@ Class App.Governance.ClassUtil
 /// This uses the compiled dictionary, so only deployable classes can be registered.
 ClassMethod IsSubclass(className As %String, baseClass As %String) As %Boolean
 {
-    if className = baseClass quit 1
-    if (className = "") || (baseClass = "") quit 0
+    if className = baseClass return 1
+    if (className = "") || (baseClass = "") return 0
     kill visited
-    quit ..WalkSuperclasses(className, baseClass, .visited)
+    return ..WalkSuperclasses(className, baseClass, .visited)
 }
 
 ClassMethod WalkSuperclasses(className As %String, baseClass As %String, ByRef visited) As %Boolean [ Internal, Private ]
 {
-    if $data(visited(className)) quit 0
+    if $data(visited(className)) return 0
     set visited(className) = 1
 
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT Super FROM %Dictionary.CompiledClass WHERE Name = ?", className)
-    if 'rs.%Next() quit 0
+    if 'rs.%Next() return 0
 
     set superclasses = rs.%Get("Super")
     set found = 0
@@ -34,24 +34,24 @@ ClassMethod WalkSuperclasses(className As %String, baseClass As %String, ByRef v
             quit
         }
     }
-    quit found
+    return found
 }
 
 ClassMethod ValidName(name As %String) As %Boolean
 {
-    quit (name '= "") && (name '[ ",")
+    return (name '= "") && (name '[ ",")
 }
 
 ClassMethod ArrayToCSV(values As %DynamicArray) As %String
 {
     set csv = ""
-    if '$isobject(values) quit csv
+    if '$isobject(values) return csv
     for index = 0:1:(values.%Size() - 1) {
         set value = values.%Get(index)
         if value = "" continue
         set csv = csv _ $select(csv="":"", 1:",") _ value
     }
-    quit csv
+    return csv
 }
 
 ClassMethod CSVToArray(csv As %String) As %DynamicArray
@@ -61,7 +61,7 @@ ClassMethod CSVToArray(csv As %String) As %DynamicArray
         set value = $piece(csv, ",", index)
         if value '= "" do values.%Push(value)
     }
-    quit values
+    return values
 }
 
 }

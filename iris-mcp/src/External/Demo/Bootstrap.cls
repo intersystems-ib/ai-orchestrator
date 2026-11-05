@@ -9,10 +9,10 @@ ClassMethod Seed() As %Status
     set sc = ##class(External.Demo.Price).SeedDemo()
     if $$$ISERR(sc) {
         trollback
-        quit sc
+        return sc
     }
     tcommit
-    quit ##class(External.Demo.Price).%BuildIndices($listbuild("NameSearchIndex"))
+    return ##class(External.Demo.Price).%BuildIndices($listbuild("NameSearchIndex"))
 }
 
 }

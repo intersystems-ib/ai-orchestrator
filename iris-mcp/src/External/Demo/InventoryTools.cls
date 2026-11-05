@@ -43,7 +43,7 @@ Method GetDailyPrices(
             "name":(rs.%Get("Name")), "day":(day),
             "price":(rs.%Get("Price")), "currency":(rs.%Get("Currency"))})
     }
-    quit {"name":(name), "day":(day), "prices":(prices), "count":(prices.%Size())}
+    return {"name":(name), "day":(day), "prices":(prices), "count":(prices.%Size())}
 }
 
 /// Busca nombres de productos con cotizaciones mediante el índice iFind.
@@ -54,7 +54,7 @@ Method SearchInventory(name As %String(DESCRIPTION = "Palabras que debe contener
         "SELECT DISTINCT Name FROM External_Demo.Price " _
         "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
         "ORDER BY Name", name)
-    quit ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
+    return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }
 
 }

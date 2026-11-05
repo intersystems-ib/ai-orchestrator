@@ -8,17 +8,17 @@ ClassMethod Check(username As %String = "", agentName As %String = "") As %Statu
 {
     if username = "" set username = $username
     if '##class(App.Governance.AIUser).IsAuthorized(username) {
-        quit $$$ERROR($$$GeneralError, "IRIS user is not authorized to use AI agents: " _ username)
+        return $$$ERROR($$$GeneralError, "IRIS user is not authorized to use AI agents: " _ username)
     }
     if agentName '= "", '##class(App.Governance.AgentUser).IsAuthorized(username, agentName) {
-        quit $$$ERROR($$$GeneralError, "IRIS user is not authorized to use agent " _ agentName _ ": " _ username)
+        return $$$ERROR($$$GeneralError, "IRIS user is not authorized to use agent " _ agentName _ ": " _ username)
     }
-    quit $$$OK
+    return $$$OK
 }
 
 Method %CanList(tool As %String, metadata As %DynamicObject) As %Boolean
 {
-    quit ##class(App.Governance.AgentUser).IsAuthorized(
+    return ##class(App.Governance.AgentUser).IsAuthorized(
         ##class(App.AIHub.RuntimeContext).GetUsername(),
         ##class(App.AIHub.RuntimeContext).GetAgent())
 }
@@ -26,7 +26,7 @@ Method %CanList(tool As %String, metadata As %DynamicObject) As %Boolean
 Method %CanExecute(tool As %String, call As %DynamicObject,
     metadata As %DynamicObject) As %Status
 {
-    quit ..Check(##class(App.AIHub.RuntimeContext).GetUsername(),
+    return ..Check(##class(App.AIHub.RuntimeContext).GetUsername(),
         ##class(App.AIHub.RuntimeContext).GetAgent())
 }
 

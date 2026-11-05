@@ -18,7 +18,7 @@ XData MessageMap
 Method HandleChat(pRequest As App.Interop.Message.ChatRequest,
     Output pResponse As App.Interop.Message.ChatResponse) As %Status
 {
-    quit ..Execute(pRequest, .pResponse)
+    return ..Execute(pRequest, .pResponse)
 }
 
 /// Shared by the REST/chat operation and the string-based BPL operation.
@@ -59,7 +59,7 @@ ClassMethod Execute(pRequest As App.Interop.Message.ChatRequest,
 
     // Business errors travel in the response so both request and response
     // remain available in the interoperability message trace.
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod ElapsedMilliseconds(startedAt As %String,
@@ -67,7 +67,7 @@ ClassMethod ElapsedMilliseconds(startedAt As %String,
 {
     set elapsed = ($piece(finishedAt, ",", 1) - $piece(startedAt, ",", 1)) * 86400
     set elapsed = elapsed + $piece(finishedAt, ",", 2) - $piece(startedAt, ",", 2)
-    quit $justify(elapsed * 1000, 0, 0)
+    return $justify(elapsed * 1000, 0, 0)
 }
 
 }

@@ -16,15 +16,15 @@ Index AgentIndex On AgentName;
 
 ClassMethod IsAuthorized(username As %String, agentName As %String) As %Boolean
 {
-    if username = "" || agentName = "" quit 0
-    if '##class(App.Governance.AIUser).IsAuthorized(username) quit 0
+    if username = "" || agentName = "" return 0
+    if '##class(App.Governance.AIUser).IsAuthorized(username) return 0
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT assignment.ID FROM App_Governance.AgentUser assignment " _
         "JOIN App_Governance.Agent agent ON agent.Name = assignment.AgentName " _
         "WHERE assignment.Username = ? AND assignment.AgentName = ? " _
         "AND assignment.Enabled = 1 AND agent.Status = 'approved' AND agent.Enabled = 1",
         username, agentName)
-    quit rs.%Next()
+    return rs.%Next()
 }
 
 ClassMethod ListForUser(username As %String) As %DynamicArray
@@ -34,22 +34,22 @@ ClassMethod ListForUser(username As %String) As %DynamicArray
         "SELECT AgentName FROM App_Governance.AgentUser " _
         "WHERE Username = ? AND Enabled = 1 ORDER BY AgentName", username)
     while rs.%Next() { do output.%Push(rs.%Get("AgentName")) }
-    quit output
+    return output
 }
 
 ClassMethod SetForUser(username As %String, agents As %DynamicArray) As %Status
 {
-    if username = "" quit $$$ERROR($$$GeneralError, "username is required")
-    if '$isobject(agents) quit $$$ERROR($$$GeneralError, "agents must be an array")
+    if username = "" return $$$ERROR($$$GeneralError, "username is required")
+    if '$isobject(agents) return $$$ERROR($$$GeneralError, "agents must be an array")
     set user = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.AIUser WHERE Username = ?", username)
-    if 'user.%Next() quit $$$ERROR($$$GeneralError, "AI user is not registered: " _ username)
+    if 'user.%Next() return $$$ERROR($$$GeneralError, "AI user is not registered: " _ username)
 
     for index = 0:1:(agents.%Size() - 1) {
         set agentName = agents.%Get(index)
         set rs = ##class(%SQL.Statement).%ExecDirect(,
             "SELECT ID FROM App_Governance.Agent WHERE Name = ?", agentName)
-        if 'rs.%Next() quit $$$ERROR($$$GeneralError, "Agent does not exist: " _ agentName)
+        if 'rs.%Next() return $$$ERROR($$$GeneralError, "Agent does not exist: " _ agentName)
     }
 
     tstart
@@ -57,7 +57,7 @@ ClassMethod SetForUser(username As %String, agents As %DynamicArray) As %Status
         "DELETE FROM App_Governance.AgentUser WHERE Username = ?", username)
     if existing.%SQLCODE < 0 {
         trollback
-        quit $$$ERROR($$$SQLError, existing.%SQLCODE, existing.%Message)
+        return $$$ERROR($$$SQLError, existing.%SQLCODE, existing.%Message)
     }
     for index = 0:1:(agents.%Size() - 1) {
         set item = ..%New()
@@ -67,10 +67,10 @@ ClassMethod SetForUser(username As %String, agents As %DynamicArray) As %Status
         set item.AssignedAt = $zdatetime($horolog, 3)
         set item.AssignedBy = $username
         set sc = item.%Save()
-        if $$$ISERR(sc) { trollback  quit sc }
+        if $$$ISERR(sc) { trollback  return sc }
     }
     tcommit
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod EnsureAssignment(username As %String, agentName As %String) As %Status
@@ -78,14 +78,14 @@ ClassMethod EnsureAssignment(username As %String, agentName As %String) As %Stat
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.AgentUser WHERE Username = ? AND AgentName = ?",
         username, agentName)
-    if rs.%Next() quit $$$OK
+    if rs.%Next() return $$$OK
     set item = ..%New()
     set item.Username = username
     set item.AgentName = agentName
     set item.Enabled = 1
     set item.AssignedAt = $zdatetime($horolog, 3)
     set item.AssignedBy = $username
-    quit item.%Save()
+    return item.%Save()
 }
 
 }

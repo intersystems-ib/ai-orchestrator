@@ -1,11 +1,61 @@
 # AI Orchestrator
 
+## Delegación entre agentes
+
+Al crear o editar un agente, **Agentes a los que puede delegar** permite seleccionar
+otros agentes registrados, aprobados y habilitados. Las asignaciones aparecen
+también en la lista de agentes. El backend las expone como `delegates` en la
+declaración del agente, junto a `tools` y `policies`:
+
+```json
+{"delegates":["agente-logistica","agente-precios"]}
+```
+
+Cada asignación genera automáticamente una herramienta para el modelo del
+coordinador. Esa herramienta admite un `prompt` e invoca al agente elegido con su
+propio modelo, instrucciones, herramientas y policies, en una conversación nueva.
+El usuario debe estar autorizado para ambos agentes. La delegación no concede
+permisos nuevos ni comparte automáticamente el historial completo del coordinador.
+La auditoría se aplica según las policies de cada agente y conserva el mismo
+RequestId para relacionar las llamadas.
+
+Se rechazan autorreferencias y ciclos. En ejecución se limitan la profundidad a
+tres niveles, las llamadas delegadas a dieciséis por petición y cada espera a
+120 segundos. El especialista se ejecuta en un job IRIS independiente; no requiere
+BPL ni una producción activa.
+
+Para una instancia con datos persistentes anterior a esta funcionalidad, reconstruir
+`iris` y `frontend`, recrear sus contenedores y aplicar la actualización de clases:
+
+```powershell
+docker compose up -d --build iris frontend
+Get-Content -Raw iris/upgrades/agent-delegation.script | docker compose exec -T iris iris session IRIS
+```
+
+La actualización conserva los agentes existentes y añade una tabla de asignaciones
+vacía. Las pruebas con proveedor local están en `iris/tests/delegation/README.md`.
+
 [English](README.md) | **Español**
 
 MVP de gobierno y composición de agentes sobre el
 [ObjectScript SDK de InterSystems AI Hub](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk).
 La arquitectura Docker incluye IRIS, Web Gateway, una consola React servida
 por Nginx y dos servidores locales llama.cpp opcionales.
+
+## Introducción y demostración con Slidev
+
+El perfil Docker `demo` añade una presentación ejecutable con guion para el
+ponente, explicación de agente, herramienta, modelo LLM y servidor MCP,
+presentación de AI Hub y una consulta sencilla con AI Orchestrator:
+
+```powershell
+docker compose --profile demo up -d --build demo
+```
+
+Disponible en [http://localhost:3030](http://localhost:3030). No arranca los demás
+servicios ni modifica el catálogo. Consulta [demo/README.md](demo/README.md) para
+preparar los datos y el agente, o editar las slides con npm.
+La consola admite enlaces directos a sus secciones, como `/#agents` y `/#mcp`.
 
 ## Capacidades
 
@@ -340,7 +390,7 @@ Method SearchInventory(
         "SELECT ID, Sku, Name, Stock FROM App_Demo.Inventory " _
         "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
         "ORDER BY Name", name)
-    quit ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
+    return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }
 }
 ```

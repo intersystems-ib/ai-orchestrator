@@ -15,7 +15,7 @@ Method SearchShipmentsByProduct(productId As %Integer(DESCRIPTION = "Identificad
         "JOIN App_Demo.Inventory i ON i.ID = sp.Product " _
         "WHERE sp.Product = ? ORDER BY s.ShipmentDate, s.ShipmentReference",
         productId)
-    quit ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 50, startedAt)
+    return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 50, startedAt)
 }
 
 /// Extrae envíos por fecha de envío. Cualquiera de los dos límites puede omitirse.
@@ -50,7 +50,7 @@ Method SearchShipmentsByDateRange(
         set resultSet = ##class(%SQL.Statement).%ExecDirect(,
             sql _ "ORDER BY s.ShipmentDate, s.ShipmentReference, i.Name")
     }
-    quit ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 100, startedAt)
+    return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 100, startedAt)
 }
 
 }

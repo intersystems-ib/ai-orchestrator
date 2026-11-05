@@ -45,7 +45,7 @@ ClassMethod Run() As %Integer
     }
     trollback
     write "INVENTORY_FAILURES=",failures,!
-    quit failures
+    return failures
 }
 }
 

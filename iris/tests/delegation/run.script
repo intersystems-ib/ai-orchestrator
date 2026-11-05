@@ -1,0 +1,6 @@
+zn "APP"
+set sc=$SYSTEM.OBJ.Load("/tmp/delegation-tests/Test.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set test=##class(App.Test.Delegation).%New()
+set failures=test.Run()
+halt

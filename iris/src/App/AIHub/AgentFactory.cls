@@ -10,8 +10,8 @@ ClassMethod Create(agentName As %String, Output agent As %AI.Agent) As %Status
         "SELECT ModelName, SystemPrompt, Temperature, MaxIterations, Policies " _
         "FROM App_Governance.Agent WHERE Name = ? AND Status = 'approved' AND Enabled = 1",
         agentName)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
-    if 'rs.%Next() quit $$$ERROR($$$GeneralError, "No approved agent is registered with that name")
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if 'rs.%Next() return $$$ERROR($$$GeneralError, "No approved agent is registered with that name")
 
     set modelName = rs.%Get("ModelName")
     set systemPrompt = rs.%Get("SystemPrompt")
@@ -23,18 +23,18 @@ ClassMethod Create(agentName As %String, Output agent As %AI.Agent) As %Status
         "SELECT ID, Provider, ModelId " _
         "FROM App_Governance.Model " _
         "WHERE Name = ? AND Status = 'approved' AND Enabled = 1", modelName)
-    if model.%SQLCODE < 0 quit $$$ERROR($$$SQLError, model.%SQLCODE, model.%Message)
-    if 'model.%Next() quit $$$ERROR($$$GeneralError, "The agent model is not approved and enabled")
+    if model.%SQLCODE < 0 return $$$ERROR($$$SQLError, model.%SQLCODE, model.%Message)
+    if 'model.%Next() return $$$ERROR($$$GeneralError, "The agent model is not approved and enabled")
 
     set sc = ##class(App.Governance.Model).GetConnectionDetails(
         model.%Get("ID"), .details, 1)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     do details.%Set("model_provider", model.%Get("Provider"))
     do details.%Set("model", model.%Get("ModelId"))
 
     set provider = ##class(%AI.Provider).Create(model.%Get("Provider"), details)
-    if '$ISOBJECT(provider) quit $$$ERROR($$$GeneralError, "AI Hub could not create the provider")
-    if 'provider.ValidateConfig() quit $$$ERROR($$$GeneralError, "The provider configuration is invalid")
+    if '$ISOBJECT(provider) return $$$ERROR($$$GeneralError, "AI Hub could not create the provider")
+    if 'provider.ValidateConfig() return $$$ERROR($$$GeneralError, "The provider configuration is invalid")
 
     set agent = ##class(%AI.Agent).%New(provider)
     set agent.Model = model.%Get("ModelId")
@@ -43,15 +43,17 @@ ClassMethod Create(agentName As %String, Output agent As %AI.Agent) As %Status
     set agent.MaxIterations = maxIterations
 
     set sc = agent.%Init()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     do ##class(App.AIHub.RuntimeContext).SetAgent(agentName)
     set sc = ..AttachTools(agent, agentName)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
+    set sc = ..AttachDelegates(agent, agentName)
+    if $$$ISERR(sc) return sc
     set sc = ..AttachPolicies(agent, policies)
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     do agent.ToolManager.SetAuthPolicy(##class(App.AIHub.Policy.UserAccess).%New())
     do agent.ToolManager.SetAuditPolicy(##class(App.AIHub.Policy.DynamicAudit).%New())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod AttachTools(agent As %AI.Agent, agentName As %String) As %Status [ Internal, Private ]
@@ -62,7 +64,7 @@ ClassMethod AttachTools(agent As %AI.Agent, agentName As %String) As %Status [ I
         "JOIN App_Governance.Tool t ON t.Name = assignment.ToolName " _
         "WHERE assignment.AgentName = ? AND t.Status = 'approved' AND t.Enabled = 1 " _
         "ORDER BY t.Name", agentName)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
     while rs.%Next() {
         if '##class(App.Governance.Tool).IsAvailable(rs.%Get("Name")) continue
         if rs.%Get("MCPServerName") '= "" {
@@ -75,7 +77,21 @@ ClassMethod AttachTools(agent As %AI.Agent, agentName As %String) As %Status [ I
         set sc = agent.ToolManager.AddTool(tool)
         if $$$ISERR(sc) quit
     }
-    quit sc
+    return sc
+}
+
+ClassMethod AttachDelegates(agent As %AI.Agent, agentName As %String) As %Status [ Internal, Private ]
+{
+    set names = ##class(App.Governance.AgentDelegate).ListForAgent(agentName)
+    for index = 0:1:(names.%Size() - 1) {
+        set name = names.%Get(index)
+        if '##class(App.Governance.AgentDelegate).IsAllowed(agentName, name) continue
+        set sc = ##class(App.AIHub.Tool.DelegateAgent).Create(agentName, name, .tool)
+        if $$$ISERR(sc) return sc
+        set sc = agent.ToolManager.AddTool(tool)
+        if $$$ISERR(sc) return sc
+    }
+    return $$$OK
 }
 
 ClassMethod AttachPolicies(agent As %AI.Agent, names As %String) As %Status [ Internal, Private ]
@@ -95,7 +111,7 @@ ClassMethod AttachPolicies(agent As %AI.Agent, names As %String) As %Status [ In
         // DynamicAudit composes the audit policies selected on this agent.
         if type = "discovery" do agent.ToolManager.SetDiscoveryPolicy(policy)
     }
-    quit $$$OK
+    return $$$OK
 }
 
 }

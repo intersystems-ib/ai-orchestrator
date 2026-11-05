@@ -43,7 +43,7 @@ Method AddInventoryItem(
             throw ##class(%Exception.StatusException).CreateFromStatus(
                 $$$ERROR($$$GeneralError, "The updated inventory item could not be reopened"))
         }
-        quit {
+        return {
             "id":(item.%Id()),
             "sku":(item.Sku),
             "name":(item.Name),
@@ -78,7 +78,7 @@ Method AddInventoryItem(
         throw ##class(%Exception.StatusException).CreateFromStatus(sc)
     }
 
-    quit {
+    return {
         "id":(item.%Id()),
         "sku":(item.Sku),
         "name":(item.Name),
@@ -97,7 +97,7 @@ Method SearchInventory(name As %String(DESCRIPTION = "Palabras que debe contener
         "SELECT ID, Sku, Name, Stock FROM App_Demo.Inventory " _
         "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
         "ORDER BY Name", name)
-    quit ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
+    return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }
 
 }

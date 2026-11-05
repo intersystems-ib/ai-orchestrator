@@ -14,12 +14,12 @@ Index UsernameIndex On Username [ Unique ];
 ClassMethod Set(payload As %DynamicObject, Output result As %DynamicObject) As %Status
 {
     set username = payload.%Get("username", "")
-    if username = "" quit $$$ERROR($$$GeneralError, "username is required")
-    if '..IRISUserExists(username) quit $$$ERROR($$$GeneralError, "IRIS user does not exist: " _ username)
+    if username = "" return $$$ERROR($$$GeneralError, "username is required")
+    if '..IRISUserExists(username) return $$$ERROR($$$GeneralError, "IRIS user does not exist: " _ username)
 
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.AIUser WHERE Username = ?", username)
-    if rs.%SQLCODE < 0 quit $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
+    if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
     if rs.%Next() {
         set item = ..%OpenId(rs.%Get("ID"))
     } else {
@@ -30,9 +30,9 @@ ClassMethod Set(payload As %DynamicObject, Output result As %DynamicObject) As %
     }
     set item.Enabled = payload.%Get("enabled", 1)
     set sc = item.%Save()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set result = ..OneJSON(item)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod IsAuthorized(username As %String = "") As %Boolean
@@ -40,7 +40,7 @@ ClassMethod IsAuthorized(username As %String = "") As %Boolean
     if username = "" set username = $username
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.AIUser WHERE Username = ? AND Enabled = 1", username)
-    quit rs.%Next()
+    return rs.%Next()
 }
 
 ClassMethod ListJSON() As %DynamicArray
@@ -57,7 +57,7 @@ ClassMethod ListJSON() As %DynamicArray
             "agents":(##class(App.Governance.AgentUser).ListForUser(rs.%Get("Username")))
         })
     }
-    quit output
+    return output
 }
 
 ClassMethod IRISUserExists(username As %String) As %Boolean [ Internal, Private ]
@@ -71,12 +71,12 @@ ClassMethod IRISUserExists(username As %String) As %Boolean [ Internal, Private 
         set exists = 0
     }
     zn originalNamespace
-    quit exists
+    return exists
 }
 
 ClassMethod OneJSON(item As App.Governance.AIUser) As %DynamicObject [ Internal, Private ]
 {
-    quit {
+    return {
         "id":(item.%Id()), "username":(item.Username), "enabled":(item.Enabled),
         "createdAt":(item.CreatedAt), "createdBy":(item.CreatedBy),
         "agents":(##class(App.Governance.AgentUser).ListForUser(item.Username))

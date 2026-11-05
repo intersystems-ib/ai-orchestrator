@@ -14,14 +14,14 @@ ClassMethod Create(className As %String, methodName As %String,
     Output tool As App.AIHub.Tool.SelectedMethod) As %Status
 {
     if '##class(App.Governance.ClassUtil).IsSubclass(className, "%AI.Tool") {
-        quit $$$ERROR($$$GeneralError, "Class does not extend %AI.Tool: " _ className)
+        return $$$ERROR($$$GeneralError, "Class does not extend %AI.Tool: " _ className)
     }
     set target = $classmethod(className, "%New")
-    if '$isobject(target) quit $$$ERROR($$$GeneralError, "Could not instantiate %AI.Tool class: " _ className)
+    if '$isobject(target) return $$$ERROR($$$GeneralError, "Could not instantiate %AI.Tool class: " _ className)
 
     set catalog = target.%Discover()
     set descriptors = catalog.%Get("tools")
-    if '$isobject(descriptors) quit $$$ERROR($$$GeneralError, className _ " did not return a valid AI Hub catalog")
+    if '$isobject(descriptors) return $$$ERROR($$$GeneralError, className _ " did not return a valid AI Hub catalog")
     set descriptor = ""
     for index = 0:1:(descriptors.%Size() - 1) {
         set candidate = descriptors.%Get(index)
@@ -30,26 +30,26 @@ ClassMethod Create(className As %String, methodName As %String,
             quit
         }
     }
-    if '$isobject(descriptor) quit $$$ERROR($$$GeneralError, "Method is no longer published by " _ className _ ": " _ methodName)
+    if '$isobject(descriptor) return $$$ERROR($$$GeneralError, "Method is no longer published by " _ className _ ": " _ methodName)
 
     set tool = ..%New()
     set tool.Target = target
     set tool.Descriptor = descriptor
     set tool.ToolName = methodName
-    quit $$$OK
+    return $$$OK
 }
 
 Method %Discover() As %DynamicObject
 {
     set tools = []
     do tools.%Push(..Descriptor)
-    quit {"tools":(tools)}
+    return {"tools":(tools)}
 }
 
 Method %Invoke(toolName As %String, args As %DynamicObject) As %Any
 {
-    if toolName '= ..ToolName quit ..%ToolError($$$ERROR($$$GeneralError, "Tool is not assigned to this adapter: " _ toolName))
-    quit ..Target.%Invoke(toolName, args)
+    if toolName '= ..ToolName return ..%ToolError($$$ERROR($$$GeneralError, "Tool is not assigned to this adapter: " _ toolName))
+    return ..Target.%Invoke(toolName, args)
 }
 
 }

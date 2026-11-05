@@ -11,6 +11,11 @@ type I18nContextValue = {
 const storageKey = "ai-governance-language";
 
 const es: Record<string, string> = {
+  "agent.section.general": "Configuración general",
+  "agent.section.tools": "Herramientas",
+  "agent.section.delegates": "Agentes",
+  "agent.section.policies": "Policies",
+  "agent.selectedCount": "Seleccionados: {count}",
   "mcp.discover": "Descubrir herramientas",
   "mcp.viewTools": "Ver herramientas",
   "mcp.closeTools": "Cerrar",
@@ -151,9 +156,9 @@ const es: Record<string, string> = {
   "resource.policies.description": "Las clases se validan contra el contrato AI Hub del tipo elegido.",
   "resource.policies.action": "Registrar policy",
   "resource.policies.headers": "Policy|Tipo|Clase ObjectScript|Estado",
-  "resource.agents.description": "Las tools se asignan en IRIS y se resuelven al materializar cada agente.",
+  "resource.agents.description": "Configura las herramientas y los agentes a los que puede delegar cada agente.",
   "resource.agents.action": "Crear agente",
-  "resource.agents.headers": "Agente|Modelo|Tools|Policies|Estado|Gestión",
+  "resource.agents.headers": "Agente|Modelo|Tools|Agentes delegados|Policies|Estado|Gestión",
   "resource.syncing": "Sincronizando...",
   "resource.empty": "Todavía no hay recursos registrados.",
   "resource.required": "Requerida",
@@ -172,7 +177,7 @@ const es: Record<string, string> = {
   "dialog.policy.subtitle": "Se valida la herencia según su tipo.",
   "dialog.agent.create": "Crear agente",
   "dialog.agent.edit": "Editar agente",
-  "dialog.agent.subtitle": "Configura el modelo, parámetros, tools y policies en una única operación.",
+  "dialog.agent.subtitle": "Configura el modelo, parámetros, herramientas, agentes delegados y policies.",
   "field.logicalName": "Nombre lógico",
   "field.displayName": "Nombre visible",
   "field.objectScriptClass": "Clase ObjectScript",
@@ -186,6 +191,8 @@ const es: Record<string, string> = {
   "field.maxIterations": "Máx. iteraciones",
   "field.systemPrompt": "System prompt",
   "field.allowedTools": "Tools permitidas",
+  "field.allowedAgents": "Agentes a los que puede delegar",
+  "field.delegationHelp": "Cada agente delegado utiliza su propio modelo y sus herramientas. El usuario debe tener acceso a ambos agentes. No se permiten ciclos de delegación.",
   "field.globalPolicies": "Policies del agente",
   "field.provider": "Proveedor",
   "field.modelId": "Model ID",
@@ -206,6 +213,11 @@ const es: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
+  "agent.section.general": "General settings",
+  "agent.section.tools": "Tools",
+  "agent.section.delegates": "Agents",
+  "agent.section.policies": "Policies",
+  "agent.selectedCount": "Selected: {count}",
   "mcp.discover": "Discover tools",
   "mcp.viewTools": "View tools",
   "mcp.closeTools": "Close",
@@ -246,9 +258,9 @@ const en: Record<string, string> = {
   "audit.date": "Date", "audit.request": "Request", "audit.agent": "Agent", "audit.tool": "Tool", "audit.policy": "Policy", "audit.duration": "Duration", "audit.result": "Result", "audit.success": "Success", "audit.empty": "There are no audited executions yet.",
   "chat.context": "EXECUTION CONTEXT", "chat.agent": "Agent", "chat.authorized": "Authorized to use AI", "chat.denied": "Not authorized", "chat.conversation": "Conversation", "chat.newConversation": "New conversation", "chat.testTitle": "Test a governed agent", "chat.testDescription": "Select an agent and send a message. IRIS will retain the session and apply the configured tools and policies.", "chat.processing": "Processing...", "chat.placeholder": "Write a message...", "chat.sending": "Sending...", "chat.send": "Send",
   "users.description": "IRIS users and the agents they may execute through JWT.", "users.add": "Add user", "users.allowedAgents": "Allowed agents", "users.registered": "Registered", "users.access": "Access", "users.management": "Management", "users.createdBy": "Added by {user}", "users.authorized": "Authorized", "users.blocked": "Blocked", "users.agents": "Agents", "users.block": "Block", "users.authorize": "Authorize", "users.empty": "There are no authorized users.", "users.jwtAuthorization": "JWT AUTHORIZATION", "users.assignmentDescription": "Policies will apply these assignments to subject {user}.",
-  "resource.models.description": "Each model contains its provider configuration; secrets are referenced from Secure Wallet.", "resource.models.action": "Register model", "resource.models.headers": "Model|Provider|Identifier|Configuration|Status|Management", "resource.tools.description": "Local ObjectScript tools and tools discovered from MCP servers.", "resource.tools.action": "Synchronize catalog", "resource.tools.headers": "Tool|Implementation|Authorization|Status|Management", "resource.policies.description": "Classes are validated against the selected AI Hub contract.", "resource.policies.action": "Register policy", "resource.policies.headers": "Policy|Type|ObjectScript class|Status", "resource.agents.description": "Tools are assigned in IRIS and resolved when each agent is materialized.", "resource.agents.action": "Create agent", "resource.agents.headers": "Agent|Model|Tools|Policies|Status|Management", "resource.syncing": "Synchronizing...", "resource.empty": "There are no registered resources yet.", "resource.required": "Required", "resource.notRequired": "Not required", "resource.iterations": "iter.",
-  "dialog.new": "NEW RESOURCE", "dialog.detail": "DETAILS AND EDITING", "dialog.model.create": "Register model", "dialog.model.edit": "Edit model", "dialog.model.subtitle": "The complete provider configuration is stored securely in IRIS Config Store.", "dialog.tool.edit": "Edit tool", "dialog.tool.subtitle": "The discovered implementation is immutable; its governance and metadata can be edited.", "dialog.policy.create": "Register policy", "dialog.policy.edit": "Edit policy", "dialog.policy.subtitle": "Inheritance is validated according to its type.", "dialog.agent.create": "Create agent", "dialog.agent.edit": "Edit agent", "dialog.agent.subtitle": "Configure the model, parameters, tools, and policies in a single operation.",
-  "field.logicalName": "Logical name", "field.displayName": "Display name", "field.objectScriptClass": "ObjectScript class", "field.method": "Method", "field.description": "Description", "field.requiresApproval": "Requires explicit approval", "field.discoveredDescriptor": "Discovered descriptor (JSON)", "field.type": "Type", "field.model": "Model", "field.temperature": "Temperature", "field.maxIterations": "Max. iterations", "field.systemPrompt": "System prompt", "field.allowedTools": "Allowed tools", "field.globalPolicies": "Agent policies", "field.provider": "Provider", "field.status": "Status", "field.apiVersion": "API version", "field.region": "Region", "field.serviceAccountPath": "Service account path", "field.siteUrl": "Site URL", "field.siteName": "Site name",
+  "resource.models.description": "Each model contains its provider configuration; secrets are referenced from Secure Wallet.", "resource.models.action": "Register model", "resource.models.headers": "Model|Provider|Identifier|Configuration|Status|Management", "resource.tools.description": "Local ObjectScript tools and tools discovered from MCP servers.", "resource.tools.action": "Synchronize catalog", "resource.tools.headers": "Tool|Implementation|Authorization|Status|Management", "resource.policies.description": "Classes are validated against the selected AI Hub contract.", "resource.policies.action": "Register policy", "resource.policies.headers": "Policy|Type|ObjectScript class|Status", "resource.agents.description": "Configure the tools and registered agents each agent can delegate to.", "resource.agents.action": "Create agent", "resource.agents.headers": "Agent|Model|Tools|Delegated agents|Policies|Status|Management", "resource.syncing": "Synchronizing...", "resource.empty": "There are no registered resources yet.", "resource.required": "Required", "resource.notRequired": "Not required", "resource.iterations": "iter.",
+  "dialog.new": "NEW RESOURCE", "dialog.detail": "DETAILS AND EDITING", "dialog.model.create": "Register model", "dialog.model.edit": "Edit model", "dialog.model.subtitle": "The complete provider configuration is stored securely in IRIS Config Store.", "dialog.tool.edit": "Edit tool", "dialog.tool.subtitle": "The discovered implementation is immutable; its governance and metadata can be edited.", "dialog.policy.create": "Register policy", "dialog.policy.edit": "Edit policy", "dialog.policy.subtitle": "Inheritance is validated according to its type.", "dialog.agent.create": "Create agent", "dialog.agent.edit": "Edit agent", "dialog.agent.subtitle": "Configure the model, parameters, tools, delegated agents, and policies.",
+  "field.logicalName": "Logical name", "field.displayName": "Display name", "field.objectScriptClass": "ObjectScript class", "field.method": "Method", "field.description": "Description", "field.requiresApproval": "Requires explicit approval", "field.discoveredDescriptor": "Discovered descriptor (JSON)", "field.type": "Type", "field.model": "Model", "field.temperature": "Temperature", "field.maxIterations": "Max. iterations", "field.systemPrompt": "System prompt", "field.allowedTools": "Allowed tools", "field.allowedAgents": "Agents available for delegation", "field.delegationHelp": "Each delegated agent uses its own model and tools. The user must have access to both agents. Delegation cycles are not allowed.", "field.globalPolicies": "Agent policies", "field.provider": "Provider", "field.status": "Status", "field.apiVersion": "API version", "field.region": "Region", "field.serviceAccountPath": "Service account path", "field.siteUrl": "Site URL", "field.siteName": "Site name",
   "status.draft": "Draft", "status.approved": "Approved", "status.suspended": "Suspended", "status.retired": "Retired", "status.disabled": "Disabled", "type.authorization": "Authorization", "type.audit": "Audit", "type.discovery": "Discovery"
 };
 

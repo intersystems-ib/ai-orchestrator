@@ -48,73 +48,73 @@ ClassMethod Health() As %Status
         "platform":"InterSystems IRIS AI Hub"
     }
     do ..WriteJSON(body)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod ListMCPServers() As %Status
 {
     do ..WriteJSON(##class(App.Governance.MCPServer).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod CreateMCPServer() As %Status
 {
-    quit ..CreateResource("App.Governance.MCPServer")
+    return ..CreateResource("App.Governance.MCPServer")
 }
 
 ClassMethod UpdateMCPServer(serverName As %String) As %Status
 {
-    quit ..UpdateResource("App.Governance.MCPServer", serverName)
+    return ..UpdateResource("App.Governance.MCPServer", serverName)
 }
 
 ClassMethod ListMCPTools(serverName As %String) As %Status
 {
     do ..WriteJSON(##class(App.Governance.Tool).ListJSON(serverName))
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod SynchronizeMCPTools(serverName As %String) As %Status
 {
     set sc = ##class(App.AIHub.MCP.Catalog).Synchronize(serverName, .result)
-    if $$$ISERR(sc) { do ..WriteError(sc, 400) quit $$$OK }
+    if $$$ISERR(sc) { do ..WriteError(sc, 400) return $$$OK }
     do ..WriteJSON(result)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod ListAIUsers() As %Status
 {
     do ..WriteJSON(##class(App.Governance.AIUser).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod SetAIUserAgents(username As %String) As %Status
 {
     if $roles '[ "%All" {
         do ..WriteError($$$ERROR($$$GeneralError, "Only IRIS administrators can manage AI users"), 403)
-        quit $$$OK
+        return $$$OK
     }
     set payload = {}.%FromJSON(%request.Content)
     set sc = ##class(App.Governance.AgentUser).SetForUser(
         username, payload.%Get("agents", []))
-    if $$$ISERR(sc) { do ..WriteError(sc, 400)  quit $$$OK }
+    if $$$ISERR(sc) { do ..WriteError(sc, 400)  return $$$OK }
     do ..WriteJSON({
         "username":(username),
         "agents":(##class(App.Governance.AgentUser).ListForUser(username))
     })
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod SetAIUser() As %Status
 {
     if $roles '[ "%All" {
         do ..WriteError($$$ERROR($$$GeneralError, "Only IRIS administrators can manage AI users"), 403)
-        quit $$$OK
+        return $$$OK
     }
     set payload = {}.%FromJSON(%request.Content)
     set sc = ##class(App.Governance.AIUser).Set(payload, .result)
-    if $$$ISERR(sc) { do ..WriteError(sc, 400)  quit $$$OK }
+    if $$$ISERR(sc) { do ..WriteError(sc, 400)  return $$$OK }
     do ..WriteJSON(result)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod Chat() As %Status
@@ -123,21 +123,21 @@ ClassMethod Chat() As %Status
     set sc = ##class(App.Interop.Gateway).Send(
         payload.%Get("agentName", ""), payload.%Get("message", ""),
         payload.%Get("conversationId", ""), $username, "chat", .result, .httpStatus)
-    if $$$ISERR(sc) { do ..WriteError(sc, httpStatus)  quit $$$OK }
+    if $$$ISERR(sc) { do ..WriteError(sc, httpStatus)  return $$$OK }
     do ..WriteJSON(result)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod Providers() As %Status
 {
     do ..WriteJSON(##class(App.Governance.Catalog).Providers())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod ListModels() As %Status
 {
     do ..WriteJSON(##class(App.Governance.Model).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod CreateModel() As %Status
@@ -146,21 +146,21 @@ ClassMethod CreateModel() As %Status
     set sc = ##class(App.Governance.Model).Create(payload, .result)
     if $$$ISERR(sc) {
         do ..WriteError(sc, 400)
-        quit $$$OK
+        return $$$OK
     }
     do ..WriteJSON(result, 201)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod UpdateModel(modelName As %String) As %Status
 {
-    quit ..UpdateResource("App.Governance.Model", modelName)
+    return ..UpdateResource("App.Governance.Model", modelName)
 }
 
 ClassMethod ListTools() As %Status
 {
     do ..WriteJSON(##class(App.Governance.Tool).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod SynchronizeTools() As %Status
@@ -168,52 +168,52 @@ ClassMethod SynchronizeTools() As %Status
     set sc = ##class(App.Governance.Tool).Synchronize(.result)
     if $$$ISERR(sc) {
         do ..WriteError(sc, 400)
-        quit $$$OK
+        return $$$OK
     }
     do ..WriteJSON(result)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod UpdateTool(toolName As %String) As %Status
 {
-    quit ..UpdateResource("App.Governance.Tool", toolName)
+    return ..UpdateResource("App.Governance.Tool", toolName)
 }
 
 ClassMethod ListPolicies() As %Status
 {
     do ..WriteJSON(##class(App.Governance.Policy).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod CreatePolicy() As %Status
 {
-    quit ..CreateResource("App.Governance.Policy")
+    return ..CreateResource("App.Governance.Policy")
 }
 
 ClassMethod ListAgents() As %Status
 {
     do ..WriteJSON(##class(App.Governance.Agent).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod ListMyAgents() As %Status
 {
     if '##class(App.Governance.AIUser).IsAuthorized($username) {
         do ..WriteJSON([])
-        quit $$$OK
+        return $$$OK
     }
     do ..WriteJSON(##class(App.Governance.Agent).ListJSON($username))
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod CreateAgent() As %Status
 {
-    quit ..CreateResource("App.Governance.Agent")
+    return ..CreateResource("App.Governance.Agent")
 }
 
 ClassMethod UpdateAgent(agentName As %String) As %Status
 {
-    quit ..UpdateResource("App.Governance.Agent", agentName)
+    return ..UpdateResource("App.Governance.Agent", agentName)
 }
 
 ClassMethod GetAgentTools(agentName As %String) As %Status
@@ -222,32 +222,32 @@ ClassMethod GetAgentTools(agentName As %String) As %Status
         "agent":(agentName),
         "tools":(##class(App.Governance.AgentTool).ListForAgent(agentName))
     })
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod SetAgentTools(agentName As %String) As %Status
 {
     set payload = {}.%FromJSON(%request.Content)
     set sc = ##class(App.Governance.AgentTool).SetForAgent(agentName, payload.%Get("tools", []))
-    if $$$ISERR(sc) { do ..WriteError(sc, 400)  quit $$$OK }
-    quit ..GetAgentTools(agentName)
+    if $$$ISERR(sc) { do ..WriteError(sc, 400)  return $$$OK }
+    return ..GetAgentTools(agentName)
 }
 
 ClassMethod GetAgentCatalog(agentName As %String) As %Status
 {
     set sc = ##class(App.AIHub.AgentFactory).Create(agentName, .agent)
-    if $$$ISERR(sc) { do ..WriteError(sc, 400)  quit $$$OK }
+    if $$$ISERR(sc) { do ..WriteError(sc, 400)  return $$$OK }
     do ..WriteJSON({
         "agent":(agentName),
         "tools":(agent.ToolManager.%Discover())
     })
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod ListAuditEvents() As %Status
 {
     do ..WriteJSON(##class(App.Governance.AuditEvent).ListJSON())
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod TestAgent(agentName As %String) As %Status
@@ -258,12 +258,12 @@ ClassMethod TestAgent(agentName As %String) As %Status
         agentName, prompt, "", $username, "test", .chatResult, .httpStatus)
     if $$$ISERR(sc) {
         do ..WriteError(sc, httpStatus)
-        quit $$$OK
+        return $$$OK
     }
     set result = {"agent":(agentName), "content":(chatResult.content),
         "requestId":(chatResult.requestId)}
     do ..WriteJSON(result)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod CreateResource(className As %String) As %Status [ Internal, Private ]
@@ -272,10 +272,10 @@ ClassMethod CreateResource(className As %String) As %Status [ Internal, Private 
     set sc = $classmethod(className, "Create", payload, .result)
     if $$$ISERR(sc) {
         do ..WriteError(sc, 400)
-        quit $$$OK
+        return $$$OK
     }
     do ..WriteJSON(result, 201)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod UpdateResource(className As %String, name As %String) As %Status [ Internal, Private ]
@@ -284,10 +284,10 @@ ClassMethod UpdateResource(className As %String, name As %String) As %Status [ I
     set sc = $classmethod(className, "Update", name, payload, .result)
     if $$$ISERR(sc) {
         do ..WriteError(sc, 400)
-        quit $$$OK
+        return $$$OK
     }
     do ..WriteJSON(result)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod WriteJSON(body As %DynamicAbstractObject, status As %Integer = 200)

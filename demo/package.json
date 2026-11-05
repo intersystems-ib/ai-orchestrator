@@ -1,0 +1,23 @@
+{
+  "name": "ai-orchestrator-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "slidev slides.md --port 3030",
+    "build": "slidev build slides.md",
+    "build:public": "slidev build slides.md --without-notes",
+    "export": "slidev export slides.md",
+    "test": "node --test lib/*.test.mjs"
+  },
+  "dependencies": {
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "vue": "3.5.44"
+  },
+  "engines": { "node": ">=24.11.0" },
+  "overrides": {
+    "dompurify": "3.4.17",
+    "image-size": "2.0.4"
+  }
+}

@@ -22,13 +22,13 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set className = payload.%Get("className", "")
     set type = payload.%Get("type", "")
     if '##class(App.Governance.ClassUtil).ValidName(name) {
-        quit $$$ERROR($$$GeneralError, "name is required and cannot contain commas")
+        return $$$ERROR($$$GeneralError, "name is required and cannot contain commas")
     }
-    if className = "" quit $$$ERROR($$$GeneralError, "className is required")
+    if className = "" return $$$ERROR($$$GeneralError, "className is required")
     set baseClass = ..BaseClass(type)
-    if baseClass = "" quit $$$ERROR($$$GeneralError, "type must be authorization, audit or discovery")
+    if baseClass = "" return $$$ERROR($$$GeneralError, "type must be authorization, audit or discovery")
     if '##class(App.Governance.ClassUtil).IsSubclass(className, baseClass) {
-        quit $$$ERROR($$$GeneralError, "The class is not compiled or does not extend " _ baseClass)
+        return $$$ERROR($$$GeneralError, "The class is not compiled or does not extend " _ baseClass)
     }
 
     set item = ..%New()
@@ -41,18 +41,18 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set item.Enabled = payload.%Get("enabled", 1)
     set item.CreatedAt = $zdatetime($horolog, 3)
     set sc = item.%Save()
-    if $$$ISERR(sc) quit sc
+    if $$$ISERR(sc) return sc
     set ignored = item.%JSONExportToString(.json)
     set result = {}.%FromJSON(json)
-    quit $$$OK
+    return $$$OK
 }
 
 ClassMethod BaseClass(type As %String) As %String
 {
-    if type = "authorization" quit "%AI.Policy.Authorization"
-    if type = "audit" quit "%AI.Policy.Audit"
-    if type = "discovery" quit "%AI.Policy.Discovery"
-    quit ""
+    if type = "authorization" return "%AI.Policy.Authorization"
+    if type = "audit" return "%AI.Policy.Audit"
+    if type = "discovery" return "%AI.Policy.Discovery"
+    return ""
 }
 
 ClassMethod ListJSON() As %DynamicArray
@@ -70,7 +70,7 @@ ClassMethod ListJSON() As %DynamicArray
             "createdAt":(rs.%Get("CreatedAt"))
         })
     }
-    quit output
+    return output
 }
 
 }

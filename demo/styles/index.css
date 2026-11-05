@@ -1,0 +1,48 @@
+:root{color-scheme:dark}
+.slidev-layout.demo-slide,.slidev-layout.demo-cover{font-family:Verdana,Arial,sans-serif;color:#f5f5fa;background:#0b0922 url('/theme/iss-content.png') center/cover no-repeat;box-sizing:border-box}
+.slidev-layout.demo-slide{padding:47px 50px 50px;font-size:20px;line-height:1.45}
+.slidev-layout.demo-slide h1{font-size:32px;color:#fff;font-weight:700;line-height:1.2;margin:0 55px 37px 0;letter-spacing:0}
+.slidev-layout.demo-slide h2{font-size:22px;color:#fff;margin:26px 0 12px;font-weight:700}
+.slidev-layout.demo-slide p{margin:14px 0;opacity:1}
+.slidev-layout.demo-slide li{margin:12px 0}
+.slidev-layout.demo-slide li::marker{color:#00b2a9}
+.slidev-layout.demo-slide strong{color:#57d4cb}
+.slidev-layout.demo-slide footer{position:absolute;bottom:17px;left:50px;right:50px;display:flex;justify-content:space-between;color:#b4b2ca;font-size:10px;letter-spacing:.08em}
+.slidev-layout.demo-slide table{font-size:18px;line-height:1.4;margin:28px 0;width:100%;border-collapse:separate;border-spacing:0;border:1px solid #626085;border-radius:9px;overflow:hidden;background:linear-gradient(115deg,rgba(0,0,0,.55),rgba(30,24,83,.75))}
+.slidev-layout.demo-slide th{background:rgba(45,36,108,.62);color:#58d7ce;font-size:15px;letter-spacing:.04em;font-weight:700}
+.slidev-layout.demo-slide td,.slidev-layout.demo-slide th{padding:15px 17px;border-bottom:1px solid #45415f}
+.slidev-layout.demo-slide tr:last-child td{border-bottom:0}
+.slidev-layout.demo-slide .slidev-code{font-size:13px!important;line-height:1.5!important;max-height:330px}
+.slidev-layout.demo-slide[name="xml-tools"] .slidev-code,.slidev-layout.demo-slide[name="xml-policies"] .slidev-code{font-size:18px!important;line-height:1.5!important;max-height:none;padding:17px 20px!important;border:1px solid #575077;border-radius:8px}
+.slidev-layout.demo-slide[name="xml-tools"] h1,.slidev-layout.demo-slide[name="xml-policies"] h1{margin-bottom:25px}
+.slidev-layout.demo-slide[name="mcp-publicacion"] h1{margin-bottom:25px}
+.slidev-layout.demo-slide[name="mcp-publicacion"] .slidev-code{font-size:18px!important;line-height:1.5!important;max-height:none;padding:17px 20px!important;border:1px solid #575077;border-radius:8px}
+.slidev-layout.demo-slide .mermaid{margin:28px 0 22px}
+.slidev-layout.demo-slide .mermaid svg{max-height:280px}
+.slidev-layout.demo-slide[name="demo-escenario"] h1{margin-bottom:20px}
+.slidev-layout.demo-slide[name="demo-escenario"] .mermaid{margin:12px 0}
+.slidev-layout.demo-slide .demo-cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:25px 0}
+.slidev-layout.demo-slide .demo-cols>div{padding:22px 25px;border:1px solid #686186;border-radius:10px;background:linear-gradient(135deg,rgba(0,0,0,.45),rgba(43,30,113,.6))}
+.slidev-layout.demo-slide .demo-cols>div:last-child{border-color:#008e92}
+.slidev-layout.demo-slide .demo-cols h2{margin-top:0}
+.slidev-layout.demo-slide .takeaway{color:#57d4cb;font-weight:700;margin-top:28px;font-size:21px;max-width:960px}
+.slidev-layout.demo-slide .concept-definition{font-size:27px;line-height:1.4;color:#fff;max-width:940px;margin:10px 0 26px}
+.slidev-layout .demo-small{font-size:13px;color:#bbb9d0;line-height:1.4}
+.slidev-layout .demo-link{display:inline-flex;align-items:center;gap:5px;color:#fff;border:1px solid #5774a5;background:linear-gradient(120deg,#22204c,#27227b);padding:9px 16px;margin:6px 10px 5px 0;border-radius:6px;font-size:15px;line-height:1.25;text-decoration:none;cursor:pointer;font-family:inherit}
+.slidev-layout .demo-link:hover{border-color:#56d8cf;background:#154a57;color:#fff}
+.slidev-layout .demo-link:focus-visible{outline:3px solid #57d4cb;outline-offset:3px}
+.slidev-layout .demo-link:disabled{opacity:.6;cursor:wait}
+.slidev-layout .demo-prompt{background:linear-gradient(120deg,rgba(0,0,0,.6),rgba(35,26,100,.7));border:1px solid #00a8a5;border-radius:10px;padding:22px 26px;margin:24px 0}
+.slidev-layout .prompt-text{font-size:23px;line-height:1.45;user-select:text;color:#fff}
+.slidev-layout .demo-date{display:flex;align-items:center;gap:15px;font-size:14px;color:#cbcadc}
+.slidev-layout .demo-date input{font:inherit;color:#fff;background:#17132e;border:1px solid #797491;border-radius:4px;padding:6px 9px}
+.slidev-layout .readiness{padding:5px 0;border-top:1px solid #65607e;font-size:17px}
+.slidev-layout .readiness[data-state="error"] p{color:#ffb3b3}
+.slidev-layout .readiness[data-state="ok"] p{color:#57d4cb}
+.slidev-layout .readiness[data-state="auth"] p{color:#f0d38b}
+.slidev-layout .live-console iframe{width:100%;height:385px;border:1px solid #686186;border-radius:6px;background:#071012}
+.slidev-layout.demo-cover{padding:75px 50px;background-image:url('/theme/iss-cover.png')}
+.slidev-layout.demo-cover h1{font-size:62px;line-height:1.14;font-weight:700;color:#fff;letter-spacing:-.025em;max-width:840px;margin:110px 0 26px}
+.slidev-layout.demo-cover h2{font-size:25px;line-height:1.5;max-width:720px;font-weight:400;color:#efedf9;margin:0}
+.slidev-layout.demo-cover .cover-kicker{display:inline-block;border:1px solid #5f5a82;border-radius:25px;padding:7px 23px;font-size:13px;font-weight:400;color:#7bdfd7;text-transform:uppercase;letter-spacing:.28em}
+.slidev-layout.demo-cover .cover-caption{position:absolute;bottom:34px;font-size:13px;color:#c5c1d8;letter-spacing:.04em}
