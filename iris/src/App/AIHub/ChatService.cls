@@ -17,9 +17,12 @@ ClassMethod Send(agentName As %String, message As %String,
     set sc = ##class(App.AIHub.AgentFactory).Create(agentName, .agent)
     if $$$ISERR(sc) return sc
 
+    set sc = ##class(App.AIHub.ContextBudget).Configuration(agentName, .config, .limits)
+    if $$$ISERR(sc) return sc
+
     if conversationId = "" {
         set conversationId = $translate($SYSTEM.Util.CreateGUID(), "{}", "")
-        set session = agent.CreateSession()
+        set session = agent.CreateSession(config)
         set sc = session.%Save()
         if $$$ISERR(sc) return sc
         set conversation = ##class(App.Governance.ChatConversation).%New()
@@ -37,22 +40,38 @@ ClassMethod Send(agentName As %String, message As %String,
         if rs.%Get("Username") '= username return $$$ERROR($$$GeneralError, "Conversation belongs to another IRIS user")
         if rs.%Get("AgentName") '= agentName return $$$ERROR($$$GeneralError, "Conversation belongs to another agent")
         set conversation = ##class(App.Governance.ChatConversation).%OpenId(rs.%Get("ID"))
-        // AI Hub keeps a native runtime token in the session. Load() reopens
-        // the persistent object and reconstitutes that token for this CSP job.
-        set session = ##class(%AI.Agent.Session).Load(rs.%Get("SessionId"), agent.Provider)
+        // The agent reopens persisted state and initializes its native runtime
+        // for this process using the preview SDK's session lifecycle API.
+        set session = agent.OpenSession(rs.%Get("SessionId"), config)
         if '$isobject(session) return $$$ERROR($$$GeneralError, "AI Hub session is no longer available")
+        if conversation.SessionState '= "" {
+            set sc = session.Import(conversation.SessionState)
+            if $$$ISERR(sc) return sc
+        }
     }
 
     try {
+        set sc = ##class(App.AIHub.ContextBudget).Prepare(agent, session, message, limits, .compacted, .summaryMethod)
+        if $$$ISERR(sc) return sc
+        if compacted set summarizedAt = $zdatetime($horolog, 3)
         set response = agent.Chat(session, message)
         set content = response.Content
         set sc = session.%Save()
+        // Keep the public SDK export alongside ownership and transcript for
+        // explicit state restoration across application requests and upgrades.
+        set sessionState = session.Export()
     } catch exception {
         set sc = exception.AsStatus()
     }
     if $$$ISERR(sc) return sc
 
     tstart
+    if compacted {
+        set conversation.LastSummaryAt = summarizedAt
+        set conversation.LastSummaryMethod = summaryMethod
+        set conversation.SummaryCount = +conversation.SummaryCount + 1
+    }
+    set conversation.SessionState = sessionState
     set conversation.UpdatedAt = $zdatetime($horolog, 3)
     set sc = conversation.%Save()
     if $$$ISERR(sc) { trollback  return sc }
@@ -65,10 +84,28 @@ ClassMethod Send(agentName As %String, message As %String,
     if $$$ISERR(sc) { trollback  return sc }
     tcommit
 
+    // Read the native runtime while this session is still loaded. Telemetry
+    // must never turn a successfully saved answer into a failed chat request.
+    set statistics = ""
+    try {
+        set statistics = session.GetStats()
+    } catch statisticsException {
+        set statistics = ""
+    }
+
     set result = {
         "requestId":(requestId), "conversationId":(conversationId), "agentName":(agentName),
         "username":(username), "content":(content),
+        "contextManagement":{ "inputBudget":(limits.inputBudget), "responseReserve":(limits.responseReserve),
+            "modelCapacity":(limits.modelCapacity), "summarized":(compacted), "summaryMethod":(summaryMethod),
+            "lastSummarizedAt":(conversation.LastSummaryAt), "lastSummaryMethod":(conversation.LastSummaryMethod),
+            "summaryCount":(+conversation.SummaryCount) },
         "messages":(##class(App.Governance.ChatMessage).ListJSON(conversationId))
+    }
+    if $isobject(statistics) {
+        do result.%Set("statistics", statistics)
+    } else {
+        do result.%Set("statistics", "", "null")
     }
     return $$$OK
 }

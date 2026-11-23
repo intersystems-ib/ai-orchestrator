@@ -68,6 +68,9 @@ class Fixture(http.server.BaseHTTPRequestHandler):
             page = message['params'].get('cursor', '')
             name = 'Echo' if not page or mode == 'duplicate' else 'Other'
             tool = {'name': name, 'description': 'Información café 漢字', 'inputSchema': {'type': 'object', 'properties': {}}}
+            if mode == 'offlineStatus':
+                tool['name'] = 'iris_status'
+                tool['inputSchema'] = {}
             if mode == 'badSchema':
                 tool['inputSchema'] = {'type': 'string'}
             result = {'tools': [tool]}
@@ -136,6 +139,9 @@ halt
 
     def test_invalid_schema(self):
         self.run_case('badSchema', False, 'input schema')
+
+    def test_offline_status_schema(self):
+        self.run_case('offlineStatus', False, 'IRIS backend connection')
 
     def test_duplicate_tools(self):
         self.run_case('duplicate', False, 'Duplicate MCP tool')

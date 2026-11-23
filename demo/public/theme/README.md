@@ -1,5 +1,10 @@
-# Estilo de la demostración
+# Presentation style
 
-Los fondos `iss-cover.png` e `iss-content.png` proceden de las páginas 7 y 11 de la referencia facilitada por el usuario, **ISS Day 1 Luciano Brustia.pdf**. Se han conservado únicamente el fondo y la marca originales, sin los textos ni el contenido de esas diapositivas.
+**English** | [Español](README_es.md)
 
-La presentación utiliza Verdana, títulos blancos, acentos turquesa y paneles oscuros con bordes finos, siguiendo esa referencia. Los textos, tablas, diagramas y controles de la demo siguen siendo editables en Slidev.
+`iss-cover.png` and `iss-content.png` come from pages 7 and 11 of the user-supplied
+reference **ISS Day 1 Luciano Brustia.pdf**. Only the original background and
+branding were retained; slide text and content were removed.
+
+Verdana, white headings, turquoise accents and dark panels follow that reference.
+The presentation's text, tables, diagrams and controls remain editable in Slidev.

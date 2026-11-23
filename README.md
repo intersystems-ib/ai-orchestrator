@@ -1,5 +1,31 @@
 # AI Orchestrator
 
+## Isolated business examples
+
+The main IRIS owns AI Orchestrator, its catalog, agents, policies and sessions.
+Inventory and shipment data and tools live in `iris-demo/` (namespace `DEMO`),
+consumed through MCP. `iris-mcp/` remains the independent daily pricing example.
+
+| Service | Responsibility | MCP endpoint from Orchestrator |
+|---|---|---|
+| `iris` | Orchestration and governance | MCP client |
+| `iris-demo` + `iris-demo-transport` | Inventory and shipments | `http://iris-demo-transport:8080/mcp` |
+| `iris-mcp` + `iris-mcp-transport` | Daily prices | `http://iris-mcp-transport:8080/mcp` |
+
+Example data, comments and tool descriptions use English. Both example servers
+use English iFind processing. The core image contains no `App.Demo` classes and
+seeds no business data.
+
+For a fresh deployment, register `iris-demo` in **MCP servers**, discover its
+tools and assign them to agents. Existing deployments must follow the
+[data and tool assignment migration](iris-demo/migration/README.md). Rebuilding
+an image does not remove old classes from an existing persistent namespace.
+
+
+Complete MCP configuration and registration examples: [inventory and shipments](iris-demo/README.md#configuring-publication-in-iris) and [daily prices](iris-mcp/README.md#configuring-publication-in-iris). They cover service classes, IRIS endpoints, `config.toml`, console registration and API requests.
+
+Before building, copy `.env.example` to `.env` and set `IRIS_IMAGE` to an accessible IRIS image that includes AI Hub. `intersystems/iris-community:2027.1.0AI.109.0` is the tag of the EAP image imported locally. No specific internal registry is required. The validated preview is IRIS AI Hub `2027.1.0AI.109.0`, loaded from its EAP image. Sample credentials are for development and must be configured for each deployment.
+
 ## Agent delegation
 
 When creating or editing an agent, select its **Agents available for delegation**
@@ -309,7 +335,7 @@ The solution requires the InterSystems IRIS image with AI Hub configured in
 `docker-compose.yml`:
 
 ```text
-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0
+intersystems/iris-community:2027.1.0AI.109.0
 ```
 
 ```powershell
@@ -349,12 +375,12 @@ A tool is implemented by a class extending `%AI.Tool`. AI Hub generates a
 descriptor for every public method through `%Discover()`; the same descriptor
 is stored and displayed in the console.
 
-`App.Demo.InventoryTools` publishes `SearchInventory`, which queries the
+On the separate `iris-demo` instance, `App.Demo.InventoryTools` publishes `SearchInventory`, which queries the
 persistent `App.Demo.Inventory` table, and `AddInventoryItem`, which registers
 a product from its name, unique SKU or reference, and initial quantity.
 
 `Inventory.Name` has a full-text `NameSearchIndex` defined as an
-`%iFind.Index.Basic` index with Spanish language processing, lowercase
+`%iFind.Index.Basic` index with English language processing, lowercase
 normalization, and stemming. Bootstrap builds it after seeding demo data.
 
 ```objectscript
@@ -367,7 +393,7 @@ Method SearchInventory(
     set startedAt = $zhorolog
     set resultSet = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, Sku, Name, Stock FROM App_Demo.Inventory " _
-        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
+        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'en') " _
         "ORDER BY Name", name)
     return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }
@@ -382,7 +408,7 @@ negative quantities. Like every other tool, it must be explicitly assigned to
 the agents allowed to use it.
 
 The demo domain also includes `App.Demo.Shipment` and
-`App.Demo.ShipmentProduct`. Bootstrap creates eight shipments and 23 product
+`App.Demo.ShipmentProduct`. The `iris-demo` bootstrap creates eight shipments and 23 product
 lines linked to inventory items. A shipment stores reference, customer,
 shipping date, receipt date, and total amount; each line stores the product,
 shipped quantity, and product total.
@@ -438,6 +464,25 @@ the receiving agent and can subsequently be edited on that agent.
 The **Agent chat** screen can invoke any approved agent. The first call creates
 a `%AI.Agent.Session`; subsequent calls reuse it to preserve context. IRIS
 stores the conversation, its owning user, and its transcript.
+
+The conversation identifier now includes native `%AI.Agent.Session.GetStats()`
+statistics, refreshed after each answer: interactions, input/output tokens, tool
+calls, LLM time, context tokens and context usage. Throughput uses the SDK formula:
+input plus output tokens divided by LLM time. Reasoning, cache and tool duration
+are shown when active. Values accumulate within the current session and exclude
+delegated agents' sessions. Missing values display as “—”; unavailable telemetry
+does not turn a successful chat answer into an error.
+The conversation also saves `session.Export()` and restores it with
+`session.Import()` on continuation, preserving explicit context and statistics restoration across
+requests and SDK upgrades. Older conversations
+begin saving this snapshot with their next answer; statistics already lost by
+the SDK cannot be reconstructed.
+
+After rebuilding the IRIS image, update an existing persistent namespace with:
+
+```powershell
+Get-Content -Raw iris/upgrades/chat-statistics.script | docker compose exec -T iris iris session IRIS
+```
 
 `App.AIHub.Policy.UserAccess` extends `%AI.Policy.Authorization`. IRIS validates
 the Bearer JWT and establishes the authenticated subject; the policy checks it
@@ -555,3 +600,144 @@ Translations and interpolation are centralized in `frontend/src/i18n.tsx`.
 Domain values returned by IRIS—such as model, agent, policy, and tool names or
 descriptions—are deliberately presented as stored and are not translated by
 the client.
+
+## IRIS image compatibility
+
+Preview `2027.1.0AI.109.0` reports a native startup alert in both upgraded persistent instances and a fresh test instance: `<METHOD DOES NOT EXIST>Sharding+2^STU`, referencing `SYS.ICM.Sharding`. MCP, BPL and agent functional tests pass, but resolve this alert with a compatible image and persistent environment before taking that deployment to production. Vendor routines and health checks are not altered.
+
+
+When this specific startup alert prevents Compose dependencies from starting, inspect the IRIS logs and verify native sessions first. Only after confirming that IRIS is operational, start the dependent services explicitly with `docker compose up -d --no-deps iris-demo-transport iris-mcp-transport webgateway frontend`, then run both MCP smoke tests. This does not resolve the native alert.
+
+## Updating to the AI Hub preview
+
+The target is **2027.1.0AI.109.0**, from the AI Hub Early Access program described in the [InterSystems publication](https://community.intersystems.com/post/intersystems-iris-ai-hub-part-2-build-your-first-agent). The checked standard public
+`latest-preview` image does not contain `iris-mcp-server`; this project requires
+the AI Hub variant from the EAP program.
+
+1. Download the AI Hub image from EAP and import the received archive with
+   `docker load -i`. Note the actual image tag printed by Docker.
+2. Tag it as `intersystems/iris-community:2027.1.0AI.109.0`, or set `IRIS_IMAGE` in `.env` to its
+   actual tag. Compose, all three Dockerfiles and both transports use the same
+   version. The image is not included in the repository.
+3. Build before stopping the environment:
+
+```powershell
+docker compose build iris iris-demo iris-mcp
+docker compose stop -t 90 frontend webgateway iris-demo-transport iris-mcp-transport iris iris-demo iris-mcp
+docker compose up -d --no-deps iris iris-demo iris-mcp
+```
+
+Wait for the persistent instance upgrade to finish and verify startup. Do not
+delete `shared/durable`: it holds application data and configuration. Reload
+application classes against the new SDK and rebuild their indexes:
+
+```powershell
+Get-Content -Raw iris/upgrades/preview.script | docker compose exec -T iris iris session IRIS
+Get-Content -Raw iris-demo/upgrade.script | docker compose exec -T iris-demo iris session IRIS
+Get-Content -Raw iris-mcp/upgrade.script | docker compose exec -T iris-mcp iris session IRIS
+docker compose up -d iris-demo-transport iris-mcp-transport webgateway frontend
+./iris-demo/tests/smoke.ps1
+./iris-mcp/tests/smoke.ps1
+```
+
+The upgrade installs `App.AIHub.Config.ModelDescriptor` from `iris/config/` in `%SYS` and rebuilds the Config Store registry. Existing `APP.AI.MODEL` references remain valid under preview validation. Conversations reopen through `agent.OpenSession()` while retaining exported state and statistics.
+
+MCP publication uses explicit XML `<ToolSet>` definitions with `<Include>` entries; inherited methods alone are not discovered by this preview.
+
+Require `ORCHESTRATOR_PREVIEW_UPGRADE_OK`, `BUSINESS_PREVIEW_UPGRADE_OK` and
+`PRICES_PREVIEW_UPGRADE_OK`. Scripts do not reseed inventory, shipments or prices.
+No backup copies are generated. Configuring an image version does not constitute
+a validated deployment: its EAP image must be available and pass build, startup
+and functional tests.
+
+## Agent context budgets
+
+Models declare `maxContextTokens`, the actual total capacity served by the LLM
+endpoint. This is metadata for validation, not a remote server setting. For the
+local Llama service, keep it aligned with `LLM_CONTEXT_SIZE` in Compose; changing
+that environment setting requires recreating Llama. Existing models without an
+explicit capacity are initialized conservatively to 4096; configure the real
+capacity for each endpoint.
+
+Agents declare `contextBudget` (input) and `responseReserve` (maximum generated
+tokens **per model call**). Input includes system instructions, tool/delegate
+schemas, conversation history, tool results and the new user message.
+`contextBudget + responseReserve` must not exceed model capacity. A budget of 0
+inherits `maxContextTokens - responseReserve`; the default reserve is 1024.
+For example, a 16384-token endpoint can serve an agent with an input budget of
+12000 and a response reserve of 2048. Reducing model capacity is rejected if an
+assigned agent would no longer fit.
+
+Before each user message, the Orchestrator checks the input using a conservative
+estimate of one token per three UTF-8 bytes plus framing headroom, not the
+provider's exact tokenizer. Actual tokenization can differ, so this admission
+check is not a strict token guarantee and may summarize early. When
+needed, the primary mechanism is `session.Summarize(provider, model, 1, prompt)`.
+The SDK produces structured conversation memory and explicitly retains the latest
+message. In preview build 109, passing 0 instead selects the default of ten recent
+messages. Summarization replaces only the native session context. The full persisted
+chat transcript and cumulative session statistics remain available. Summary
+requests incur additional model calls and are not included in the native chat
+session's token statistics. If the fixed instructions/tools/new message cannot
+fit, or summarization fails, the request returns an error without silently
+truncating or replacing the persisted conversation state.
+
+The block-based implementation is a fallback only. A real Llama test with a
+16384-token endpoint showed that native `Summarize()` forwards an oversized
+transcript in one request: roughly 20000 tokens were rejected with
+`exceed_context_size_error`. Blocks are therefore used only for that explicit
+provider error, or when a successful SDK summary still exceeds the agent budget
+(for example, because its retained latest message is too large). The original
+snapshot is restored before fallback, and a small completed latest assistant
+answer is retained verbatim when it fits. Other SDK/provider errors propagate without
+a block retry. The response exposes `contextManagement.summaryMethod` as `none`,
+`sdk` or `blocks`.
+
+This admission check runs at the start of each chat turn. Tool results generated
+inside that turn are handled by the SDK's `auto_compact_on_token_limit` safeguard;
+the agent input budget is not a hard token counter between native tool iterations.
+It does not guarantee admission of a single oversized tool result. Keep tool
+outputs bounded and the declared endpoint capacity accurate. The chat statistics
+panel shows declared capacity, input budget, response reserve and whether history
+was summarized before the last message.
+
+For an existing persistent deployment, rebuild the core image, recreate its
+container, then run `iris/upgrades/context-budget.script` as with the other
+application upgrades. Require `CONTEXT_BUDGET_UPGRADE_OK`. Data is preserved;
+the script only loads application classes and initializes missing budget fields.
+See [context regression tests](iris/tests/context-budget/README.md).
+
+## Deleting registry entries and summary history
+
+The chat statistics retain the last summary's server timestamp, method (SDK
+Summarize or blocks) and count across subsequent messages in that conversation.
+Earlier summaries created before this metadata was introduced have no recorded
+timestamp. The last-send flag remains separate from the last recorded summary.
+
+Models, agents and MCP server registrations have a Delete action with a
+confirmation. The API provides `DELETE /models/:name`, `DELETE /agents/:name`
+and `DELETE /mcp-servers/:name`. A model cannot be deleted while any agent
+references it, regardless of status. An MCP server cannot be deleted while any
+of its tools is assigned to an agent. These checks also apply to direct API
+calls and return HTTP 409 with the dependency; missing entries return 404.
+
+Deleting an unused MCP registration removes its discovered catalog tools and
+leaves the remote server running. Agent deletion is blocked by incoming delegate
+assignments or configured production AgentName settings; otherwise its tool,
+outgoing delegate and user assignments are removed. Chat transcripts and audit
+history remain. Deleting an unused model removes its connection configuration;
+it does not stop the LLM server or delete model files.
+
+MCP transports wait for the IRIS superserver socket before starting the native
+client. In preview build 109, starting offline and reconnecting can leave native
+service discovery returning HTTP 401. If discovery returns only `iris_status`
+with an empty schema, check the transport logs and authentication, then restart
+the transports after IRIS is ready:
+
+```powershell
+docker compose restart iris-demo-transport iris-mcp-transport
+```
+
+The Orchestrator rejects that invalid diagnostic descriptor without replacing
+the existing catalog. The View tools and Discover tools actions use list and
+refresh icons with tooltips and accessible names.

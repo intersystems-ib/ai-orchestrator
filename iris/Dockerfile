@@ -1,4 +1,4 @@
-ARG IMAGE=docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0
+ARG IMAGE=intersystems/iris-community:2027.1.0AI.109.0
 FROM ${IMAGE}
 
 USER root
@@ -8,6 +8,7 @@ RUN chown -R ${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} /opt/irisapp
 USER ${ISC_PACKAGE_MGRUSER}
 
 COPY --chown=${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} iris/src/ ./src/
+COPY --chown=${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} iris/config/ ./config/
 COPY --chown=${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} iris/iris.cpf /tmp/iris.cpf
 COPY --chown=${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} iris/iris.script ./iris.script
 

@@ -1,0 +1,138 @@
+{
+  "products": [
+    {
+      "sku": "INV-001",
+      "from": "Café molido premium",
+      "to": "Premium ground coffee"
+    },
+    {
+      "sku": "INV-002",
+      "from": "Té verde ecológico",
+      "to": "Organic green tea"
+    },
+    {
+      "sku": "INV-003",
+      "from": "Chocolate negro 85%",
+      "to": "85% dark chocolate"
+    },
+    {
+      "sku": "INV-004",
+      "from": "Galletas de avena",
+      "to": "Oat cookies"
+    },
+    {
+      "sku": "INV-005",
+      "from": "Aceite de oliva virgen extra",
+      "to": "Extra virgin olive oil"
+    },
+    {
+      "sku": "INV-006",
+      "from": "Arroz integral",
+      "to": "Brown rice"
+    },
+    {
+      "sku": "INV-007",
+      "from": "Pasta artesanal",
+      "to": "Artisan pasta"
+    },
+    {
+      "sku": "INV-008",
+      "from": "Salsa de tomate casera",
+      "to": "Homemade tomato sauce"
+    },
+    {
+      "sku": "INV-009",
+      "from": "Miel de montaña",
+      "to": "Mountain honey"
+    },
+    {
+      "sku": "INV-010",
+      "from": "Mermelada de fresa",
+      "to": "Strawberry jam"
+    },
+    {
+      "sku": "INV-011",
+      "from": "Leche de almendras",
+      "to": "Almond milk"
+    },
+    {
+      "sku": "INV-012",
+      "from": "Cereales integrales",
+      "to": "Whole grain cereal"
+    },
+    {
+      "sku": "INV-013",
+      "from": "Harina de trigo ecológica",
+      "to": "Organic wheat flour"
+    },
+    {
+      "sku": "INV-014",
+      "from": "Garbanzos cocidos",
+      "to": "Cooked chickpeas"
+    },
+    {
+      "sku": "INV-015",
+      "from": "Atún en aceite de oliva",
+      "to": "Tuna in olive oil"
+    },
+    {
+      "sku": "INV-016",
+      "from": "Crema de cacahuete",
+      "to": "Peanut butter"
+    },
+    {
+      "sku": "INV-017",
+      "from": "Frutos secos variados",
+      "to": "Mixed nuts"
+    },
+    {
+      "sku": "INV-018",
+      "from": "Agua mineral natural",
+      "to": "Natural mineral water"
+    },
+    {
+      "sku": "INV-019",
+      "from": "Zumo de naranja",
+      "to": "Orange juice"
+    },
+    {
+      "sku": "INV-020",
+      "from": "Café en grano descafeinado",
+      "to": "Decaffeinated coffee beans"
+    }
+  ],
+  "customers": [
+    {
+      "from": "Mercado Central Madrid",
+      "to": "Madrid Central Market"
+    },
+    {
+      "from": "Distribuciones Levante",
+      "to": "East Coast Distributors"
+    },
+    {
+      "from": "Alimentos del Norte",
+      "to": "Northern Foods"
+    },
+    {
+      "from": "Comercial Mediterráneo",
+      "to": "Mediterranean Trading"
+    },
+    {
+      "from": "Supermercados Sierra",
+      "to": "Mountain Supermarkets"
+    },
+    {
+      "from": "Hostelería Costa Sur",
+      "to": "South Coast Hospitality"
+    },
+    {
+      "from": "Tiendas Gourmet Ibéricas",
+      "to": "Iberian Gourmet Stores"
+    },
+    {
+      "from": "Plataforma Logística Centro",
+      "to": "Central Logistics Platform"
+    }
+  ]
+}

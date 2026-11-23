@@ -1,0 +1,5 @@
+zn "DEMO"
+set sc=##class(Demo.Migration.LegacyData).Translate("/tmp/demo-migration/sample-translations.json")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "DEMO_TRANSLATION_OK",!
+halt

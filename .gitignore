@@ -5,6 +5,7 @@
 
 iris/shared/durable*/
 iris-mcp/shared/durable*/
+iris-demo/shared/durable*/
 webgateway/shared/durable/
 frontend/node_modules/
 frontend/dist/

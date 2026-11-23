@@ -4,11 +4,11 @@ Include %occStatus
 Class App.Demo.InventoryTools Extends %AI.Tool
 {
 
-/// Añade un producto o incrementa el stock si ya existe el mismo nombre.
+/// Add a product or increase stock when its name already exists.
 Method AddInventoryItem(
-    name As %String(DESCRIPTION = "Nombre del producto"),
-    sku As %String(DESCRIPTION = "SKU o referencia única del producto"),
-    quantity As %Integer(MINVAL = 0, DESCRIPTION = "Cantidad inicial disponible en stock")
+    name As %String(DESCRIPTION = "Product name"),
+    sku As %String(DESCRIPTION = "Unique product SKU or reference"),
+    quantity As %Integer(MINVAL = 0, DESCRIPTION = "Initial quantity available in stock")
 ) As %DynamicObject
 {
     set name = $zstrip(name, "<>W")
@@ -89,13 +89,13 @@ Method AddInventoryItem(
     }
 }
 
-/// Busca productos mediante el índice full-text iFind del inventario.
-Method SearchInventory(name As %String(DESCRIPTION = "Palabras que debe contener el nombre del producto")) As %DynamicObject
+/// Search inventory products using the iFind full-text index.
+Method SearchInventory(name As %String(DESCRIPTION = "Words to match in the product name")) As %DynamicObject
 {
     set startedAt = $zhorolog
     set resultSet = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, Sku, Name, Stock FROM App_Demo.Inventory " _
-        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
+        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'en') " _
         "ORDER BY Name", name)
     return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }

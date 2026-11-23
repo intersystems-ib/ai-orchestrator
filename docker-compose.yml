@@ -3,12 +3,13 @@ name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}
 services:
   iris:
     init: true
+    stop_grace_period: 90s
     container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris
     build:
       context: .
       dockerfile: iris/Dockerfile
       args:
-        IMAGE: ${IRIS_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0}
+        IMAGE: ${IRIS_IMAGE:-intersystems/iris-community:2027.1.0AI.109.0}
     command: --check-caps false --ISCAgent false
     environment:
       ISC_DATA_DIRECTORY: /iris-shared/durable
@@ -23,12 +24,13 @@ services:
 
   iris-mcp:
     init: true
+    stop_grace_period: 90s
     container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris-mcp
     build:
       context: .
       dockerfile: iris-mcp/Dockerfile
       args:
-        IMAGE: ${IRIS_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0}
+        IMAGE: ${IRIS_IMAGE:-intersystems/iris-community:2027.1.0AI.109.0}
     command: --check-caps false --ISCAgent false
     environment:
       ISC_DATA_DIRECTORY: /iris-shared/durable
@@ -44,7 +46,7 @@ services:
   iris-mcp-transport:
     init: true
     container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris-mcp-transport
-    image: ${IRIS_IMAGE:-docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0}
+    image: ${IRIS_IMAGE:-intersystems/iris-community:2027.1.0AI.109.0}
     entrypoint: ["python3", "/etc/iris-mcp/serve.py"]
     environment:
       IRIS_MCP_USERNAME: ${IRIS_MCP_USERNAME:-CSPSystem}
@@ -56,6 +58,53 @@ services:
       - ./iris-mcp/serve.py:/etc/iris-mcp/serve.py:ro
     depends_on:
       iris-mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 8080), 5).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  iris-demo:
+    init: true
+    stop_grace_period: 90s
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris-demo
+    build:
+      context: .
+      dockerfile: iris-demo/Dockerfile
+      args:
+        IMAGE: ${IRIS_IMAGE:-intersystems/iris-community:2027.1.0AI.109.0}
+    command: --check-caps false --ISCAgent false
+    environment:
+      ISC_DATA_DIRECTORY: /iris-shared/durable
+    ports:
+      - "127.0.0.1:${IRIS_DEMO_WEB_PORT:-52775}:52773"
+      - "127.0.0.1:${IRIS_DEMO_SUPERSERVER_PORT:-1974}:1972"
+    volumes:
+      - ./iris-demo/shared:/iris-shared
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  iris-demo-transport:
+    init: true
+    container_name: ${COMPOSE_PROJECT_NAME:-ai-orchestrator}-iris-demo-transport
+    image: ${IRIS_IMAGE:-intersystems/iris-community:2027.1.0AI.109.0}
+    entrypoint: ["python3", "/etc/iris-mcp/serve.py"]
+    environment:
+      IRIS_DEMO_USERNAME: ${IRIS_DEMO_USERNAME:-CSPSystem}
+      IRIS_DEMO_PASSWORD: ${IRIS_DEMO_PASSWORD:-SYS}
+    ports:
+      - "127.0.0.1:${DEMO_MCP_HTTP_PORT:-8083}:8080"
+    volumes:
+      - ./iris-demo/config.toml:/etc/iris-mcp/config.toml:ro
+      - ./iris-mcp/serve.py:/etc/iris-mcp/serve.py:ro
+    depends_on:
+      iris-demo:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python3", "-c", "import socket; socket.create_connection(('127.0.0.1', 8080), 5).close()"]
@@ -119,7 +168,7 @@ services:
       - --alias
       - ${LLM_MODEL_ALIAS:-llama-3.1-8b-instruct}
       - -c
-      - "4096"
+      - "${LLM_CONTEXT_SIZE:-16384}"
       - -t
       - "12"
       - --temp

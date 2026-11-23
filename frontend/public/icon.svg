@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>AI Orchestrator</title>
+  <rect width="64" height="64" rx="15" fill="#43dfb4"/>
+  <g fill="none" stroke="#082326" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 46 12-29 12 29M17 35h15M46 20v24M33 32h13"/>
+  </g>
+  <g fill="#082326">
+    <circle cx="46" cy="19" r="4"/>
+    <circle cx="46" cy="32" r="4"/>
+    <circle cx="46" cy="45" r="4"/>
+  </g>
+</svg>

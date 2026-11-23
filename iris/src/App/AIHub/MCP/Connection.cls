@@ -124,7 +124,14 @@ Method ListTools(Output result As %DynamicObject) As %Status
             set schema = tool.%Get("inputSchema")
             if '$isobject(schema) { set sc = $$$ERROR($$$GeneralError, "MCP tool has no input schema") quit }
             if 'schema.%IsA("%DynamicObject") { set sc = $$$ERROR($$$GeneralError, "MCP input schema must be an object") quit }
-            if schema.%Get("type") '= "object" { set sc = $$$ERROR($$$GeneralError, "MCP tool input schema must have object type") quit }
+            if schema.%Get("type") '= "object" {
+                if (name = "iris_status"), schema.%Size() = 0 {
+                    set sc = $$$ERROR($$$GeneralError, "IRIS MCP returned diagnostic tool iris_status with an empty input schema. Check the transport's IRIS backend connection and authentication; restart the transport after IRIS is ready. The existing catalog was not changed.")
+                } else {
+                    set sc = $$$ERROR($$$GeneralError, "MCP tool '" _ name _ "' input schema must have object type")
+                }
+                quit
+            }
             set names(name) = 1
             do tools.%Push(tool)
         }

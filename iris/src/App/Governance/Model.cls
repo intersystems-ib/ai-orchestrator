@@ -10,6 +10,9 @@ Property Status As %String(VALUELIST = ",draft,approved,suspended,retired") [ In
 Property Enabled As %Boolean [ InitialExpression = 1 ];
 Property CreatedAt As %TimeStamp;
 
+/// Declared serving capacity; changing it does not reconfigure the provider.
+Property MaxContextTokens As %Integer(MINVAL = 512) [ InitialExpression = 4096 ];
+
 Index NameIndex On Name [ Unique ];
 
 ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) As %Status
@@ -26,7 +29,12 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set sc = ..ValidateSecrets(payload.%Get("apiKey", ""), payload.%Get("bearerToken", ""))
     if $$$ISERR(sc) return sc
 
+    set capacity = payload.%Get("maxContextTokens", 4096)
+    set sc = ##class(App.AIHub.ContextBudget).ValidateCapacity(capacity)
+    if $$$ISERR(sc) return sc
+
     set model = ..%New()
+    set model.MaxContextTokens = capacity
     set model.Name = name
     set model.DisplayName = payload.%Get("displayName", name)
     set model.Provider = provider
@@ -65,6 +73,12 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     set sc = ..ValidateSecrets(payload.%Get("apiKey", ""), payload.%Get("bearerToken", ""))
     if $$$ISERR(sc) return sc
 
+    set sc = ..GetConnectionDetails(model.%Id(), .previousDetails, 0)
+    if $$$ISERR(sc) return sc
+    set capacity = payload.%Get("maxContextTokens", model.MaxContextTokens)
+    set sc = ##class(App.AIHub.ContextBudget).ValidateCapacity(capacity, name)
+    if $$$ISERR(sc) return sc
+    set model.MaxContextTokens = capacity
     set model.DisplayName = payload.%Get("displayName", model.DisplayName)
     set model.Provider = provider
     set model.ModelId = modelId
@@ -74,33 +88,36 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     tstart
     set sc = model.%Save()
     if $$$ISERR(sc) { trollback  return sc }
-    set sc = ..SaveConfiguration(model, ..DetailsFromPayload(payload))
+    set sc = ..SaveConfiguration(model, ..DetailsFromPayload(payload, previousDetails))
     if $$$ISERR(sc) { trollback  return sc }
     tcommit
     set result = ..OneJSON(model)
     return $$$OK
 }
 
-ClassMethod DetailsFromPayload(payload As %DynamicObject) As %DynamicObject [ Internal, Private ]
+ClassMethod DetailsFromPayload(payload As %DynamicObject, previous As %DynamicObject = "") As %DynamicObject [ Internal, Private ]
 {
     set details = {}
-    do ..AddDetail(details, "api_key", payload.%Get("apiKey", ""))
-    do ..AddDetail(details, "base_url", payload.%Get("baseUrl", ""))
-    do ..AddDetail(details, "org_id", payload.%Get("orgId", ""))
-    do ..AddDetail(details, "version", payload.%Get("version", ""))
-    do ..AddDetail(details, "region", payload.%Get("region", ""))
-    do ..AddDetail(details, "bearer_token", payload.%Get("bearerToken", ""))
-    do ..AddDetail(details, "project_id", payload.%Get("projectId", ""))
-    do ..AddDetail(details, "service_account_path", payload.%Get("serviceAccountPath", ""))
-    do ..AddDetail(details, "site_url", payload.%Get("siteUrl", ""))
-    do ..AddDetail(details, "site_name", payload.%Get("siteName", ""))
+    if $isobject(previous) set details = {}.%FromJSON(previous.%ToJSON())
+    do ..PayloadDetail(details, payload, "apiKey", "api_key")
+    do ..PayloadDetail(details, payload, "baseUrl", "base_url")
+    do ..PayloadDetail(details, payload, "orgId", "org_id")
+    do ..PayloadDetail(details, payload, "version", "version")
+    do ..PayloadDetail(details, payload, "region", "region")
+    do ..PayloadDetail(details, payload, "bearerToken", "bearer_token")
+    do ..PayloadDetail(details, payload, "projectId", "project_id")
+    do ..PayloadDetail(details, payload, "serviceAccountPath", "service_account_path")
+    do ..PayloadDetail(details, payload, "siteUrl", "site_url")
+    do ..PayloadDetail(details, payload, "siteName", "site_name")
     return details
 }
 
-ClassMethod AddDetail(details As %DynamicObject, key As %String,
-    value As %String) [ Internal, Private ]
+ClassMethod PayloadDetail(details As %DynamicObject, payload As %DynamicObject,
+    field As %String, key As %String) [ Internal, Private ]
 {
-    if value '= "" do details.%Set(key, value)
+    if 'payload.%IsDefined(field) return
+    set value = payload.%Get(field)
+    if value = "" { do details.%Remove(key) } else { do details.%Set(key, value) }
 }
 
 ClassMethod SaveConfiguration(model As App.Governance.Model,
@@ -170,7 +187,7 @@ ClassMethod OneJSON(model As App.Governance.Model) As %DynamicObject [ Internal,
     return {
         "id":(model.%Id()), "name":(model.Name),
         "displayName":(model.DisplayName), "provider":(model.Provider),
-        "modelId":(model.ModelId), "apiKey":(details.%Get("api_key", "")),
+        "maxContextTokens":(+model.MaxContextTokens), "modelId":(model.ModelId), "apiKey":(details.%Get("api_key", "")),
         "baseUrl":(details.%Get("base_url", "")), "orgId":(details.%Get("org_id", "")),
         "version":(details.%Get("version", "")), "region":(details.%Get("region", "")),
         "bearerToken":(details.%Get("bearer_token", "")),

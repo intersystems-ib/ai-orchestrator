@@ -31,14 +31,14 @@ try {
     $searchTool = $catalog.tools | Where-Object name -eq 'mcp_demo_SearchInventory'
     if (@($catalog.tools).Count -ne 2 -or -not $priceTool -or -not $searchTool) { throw 'Only the two inventory price tools should be published' }
     if (@($priceTool.inputSchema.required).Count -ne 2) { throw 'Missing quotation parameters' }
-    $search = Send-MCPRequest 3 'tools/call' @{name = $searchTool.name; arguments = @{name = "Caf$([char]233)"}}
+    $search = Send-MCPRequest 3 'tools/call' @{name = $searchTool.name; arguments = @{name = 'Coffee'}}
     if ($search.isError) { throw 'Remote product search failed' }
     $day = Get-Date -Format 'yyyy-MM-dd'
-    $price = Send-MCPRequest 5 'tools/call' @{name = $priceTool.name; arguments = @{name = "Caf$([char]233)"; day = $day}}
+    $price = Send-MCPRequest 5 'tools/call' @{name = $priceTool.name; arguments = @{name = 'Coffee'; day = $day}}
     if ($price.isError) { throw 'Remote GetDailyPrices failed' }
     $prices = (($price.content | Where-Object type -eq 'text').text | ConvertFrom-Json)
     if ($prices.count -ne 2 -or $prices.prices[0].day -ne $day -or $prices.prices[0].currency -ne 'EUR') { throw 'Incorrect daily quotations' }
-    $invalid = Send-MCPRequest 6 'tools/call' @{name = $priceTool.name; arguments = @{name = 'arroz'; day = '2026-02-30'}}
+    $invalid = Send-MCPRequest 6 'tools/call' @{name = $priceTool.name; arguments = @{name = 'Rice'; day = '2026-02-30'}}
     if (-not $invalid.isError) { throw 'Invalid quotation date was accepted' }
     'MCP OK: only SearchInventory and GetDailyPrices; product search, daily quotations and invalid-date rejection'
 } finally {

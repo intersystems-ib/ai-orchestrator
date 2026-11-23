@@ -1,0 +1,7 @@
+zn "APP"
+set sc=$SYSTEM.OBJ.Load("/opt/irisapp/src/App/Governance/ChatConversation.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=$SYSTEM.OBJ.Load("/opt/irisapp/src/App/AIHub/ChatService.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "CHAT_STATISTICS_UPGRADE_OK",!
+halt

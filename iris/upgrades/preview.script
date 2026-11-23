@@ -1,0 +1,16 @@
+zn "%SYS"
+set sc=$SYSTEM.OBJ.LoadDir("/opt/irisapp/config","ck",,1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=##class(%ConfigStore.DescriptorManager).RebuildRegistry()
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+zn "APP"
+set sc=##class(Ens.Director).StopProduction(60,1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=$SYSTEM.OBJ.LoadDir("/opt/irisapp/src/App","ck",,1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=##class(App.AIHub.Bootstrap).Seed()
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=##class(Ens.Director).StartProduction("App.Interop.Production")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "ORCHESTRATOR_PREVIEW_UPGRADE_OK",!
+halt

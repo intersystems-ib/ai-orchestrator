@@ -1,0 +1,11 @@
+zn "MCP"
+set sc=$SYSTEM.OBJ.LoadDir("/opt/irisapp/src/External","ck",,1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=$SYSTEM.OBJ.Load("/tmp/demo-migration/LegacyData.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=##class(Demo.Migration.LegacyData).Translate("/tmp/demo-migration/sample-translations.json",1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=##class(External.Demo.Bootstrap).Seed()
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "DEMO_PRICES_TRANSLATION_OK",!
+halt

@@ -26,11 +26,11 @@ export function healthResult(status, body) {
 
 export function promptFor(scenario, day) {
   const prompts = {
-    inventory: 'Busca los productos cuyo nombre contenga la palabra «Café» y muestra su SKU y el stock disponible. Utiliza las herramientas autorizadas, sin inventar datos.',
-    pricing: `Consulta las cotizaciones de los productos que contengan «Café» para el día ${day}. Muestra nombre, fecha, precio y moneda. Si no hay cotizaciones para ese día, indícalo.`,
-    combined: `¿Qué productos de «Café» tenemos en el inventario y cuál es su precio para el día ${day}? Devuelve una tabla con producto, SKU, stock, precio y moneda. Utiliza las herramientas disponibles e indica si falta algún dato.`,
-    shipments: 'Busca «Arroz» en el inventario y utiliza su identificador para consultar los envíos de ese producto. Resume las referencias y cantidades que devuelvan las herramientas.',
-    bpl: 'Busca los productos «Café» y resume el stock disponible utilizando las herramientas asignadas.',
+    inventory: 'Busca los productos cuyo nombre contenga la palabra «Coffee» y muestra su SKU y el stock disponible. Utiliza las herramientas autorizadas, sin inventar datos.',
+    pricing: `Consulta las cotizaciones de los productos que contengan «Coffee» para el día ${day}. Muestra nombre, fecha, precio y moneda. Si no hay cotizaciones para ese día, indícalo.`,
+    combined: `¿Qué productos de «Coffee» tenemos en el inventario y cuál es su precio para el día ${day}? Devuelve una tabla con producto, SKU, stock, precio y moneda. Utiliza las herramientas disponibles e indica si falta algún dato.`,
+    shipments: 'Busca «Rice» en el inventario y utiliza su identificador para consultar los envíos de ese producto. Resume las referencias y cantidades que devuelvan las herramientas.',
+    bpl: 'Busca los productos «Coffee» y resume el stock disponible utilizando las herramientas asignadas.',
   }
   return prompts[scenario] || prompts.inventory
 }

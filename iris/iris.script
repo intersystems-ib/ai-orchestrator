@@ -5,6 +5,10 @@ set jwtSettings("JWTSigAlg") = "ES256"
 set sc = ##class(Security.System).Modify(, .jwtSettings)
 if '$SYSTEM.Status.IsOK(sc) do $SYSTEM.OBJ.DisplayError(sc)
 if '$SYSTEM.Status.IsOK(sc) set $ECODE=",U-BUILDFAILED,"
+set sc = $SYSTEM.OBJ.LoadDir("/opt/irisapp/config", "ck", , 1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
+set sc = ##class(%ConfigStore.DescriptorManager).RebuildRegistry()
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
 do ##class(SYS.Container).QuiesceForBundling()
 
 zn "APP"

@@ -1,189 +1,138 @@
-# Conceptos de agentes y demo sencilla con Slidev
+# Agent concepts and a simple Slidev demonstration
 
-Presentación introductoria en español, organizada en tres bloques:
+**English** | [Español](README_es.md)
 
-1. **Conceptos:** agente, herramienta, modelo LLM y servidor MCP.
-2. **InterSystems IRIS:** AI Hub, construcción de agentes, conexión de herramientas, policies y servidor MCP.
-3. **Demostración:** una consulta de inventario y precios usando AI Orchestrator.
+The Spanish-language presentation has 19 slides with speaker notes, organized as:
+concepts (agent, tool, LLM, MCP); InterSystems AI Hub and MCP; a final AI Orchestrator
+inventory-and-pricing example. It introduces the practical scenario only in the
+final section, with an editable architecture diagram and a copyable prompt.
+The main talk excludes BPL, shipment queries, permission changes and failure drills.
 
-Los conceptos y las capacidades de la plataforma se explican sin anticipar
-el caso práctico. El bloque final presenta el inventario y los precios con
-un diagrama de sus componentes y conexiones. Las 19 slides incluyen notas para el ponente y un prompt
-copiable. El recorrido principal no incluye BPL, envíos, cambios de permisos
-ni pruebas de indisponibilidad. El material técnico se conserva como ampliación.
-
-## Arranque de la presentación
-
-Desde la raíz del repositorio:
+## Starting the presentation
 
 ```powershell
 docker compose --profile demo up -d --build demo
 ```
 
-Abrir [http://localhost:3030](http://localhost:3030). El puerto se cambia con
-`DEMO_PORT` en el `.env` raíz. Este servicio no tiene dependencias de arranque:
-no inicia IRIS, los modelos ni el frontend y no modifica su configuración.
-
-Para preparar un entorno que esté detenido, iniciar por separado los servicios
-habituales, con los puertos disponibles en el equipo:
+Open [the presentation](http://localhost:3030). `DEMO_PORT` changes its port.
+The presentation has no startup dependencies and creates no agents, models,
+users or permissions. Start application services separately when needed:
 
 ```powershell
-docker compose up -d --build iris iris-mcp iris-mcp-transport webgateway frontend
-# Sólo si se van a utilizar los modelos locales y el equipo dispone de GPU:
+docker compose up -d --build iris iris-demo iris-demo-transport iris-mcp iris-mcp-transport webgateway frontend
+# Optional local models; requires the model files and GPU resources:
 docker compose --profile ai up -d llama qwen
 ```
 
-La demo conserva su guion aunque no haya backend. La comprobación de salud
-consulta únicamente `/api/app/health` y no autentica al usuario ni prueba las
-inferencias. Un aviso de autenticación no significa que el agente esté listo.
+For local hot-reload editing, run `npm ci` then `npm run dev` in `demo/`.
+Node 24.11 or later is required. The lockfile pins the dependencies; compatible
+DOMPurify and image-size overrides include the fixes applied when Slidev was added.
+The deck still works without a backend. Its health check only queries
+`/api/app/health`: it does not authenticate or test inference, and a login
+requirement does not prove the agent is ready.
 
-En modo local, se puede editar con recarga de cambios sin reconstruir Docker:
+## Functional preparation
 
-```powershell
-cd demo
-npm ci
-npm run dev
-```
-
-Se requiere Node.js **24.11 o posterior**. La imagen Docker incluye Node 24.
-Las versiones están fijadas en `package-lock.json`; los overrides de DOMPurify
-e image-size aplican las correcciones compatibles detectadas al incorporar Slidev.
-
-## Preparación funcional antes de presentar
-
-1. Iniciar sesión en la consola con un usuario de demostración habilitado.
-2. Registrar o revisar un modelo aprobado que ya haya demostrado tool calling.
-   Comprobar su conexión con el servidor local o el proveedor elegido.
-3. En **Tools**, sincronizar las clases locales. Identificar los métodos
-   `SearchInventory` de `App.Demo.InventoryTools`.
-4. Crear o revisar el agente **demo-operaciones**. Seleccionar el modelo,
-   aprobarlo, habilitarlo y asignar la búsqueda local de inventario.
-5. Añadir la policy de auditoría **database-audit** al agente. La autorización
-   de usuarios ya es obligatoria en el proyecto.
-6. En **Usuarios IA**, habilitar el usuario y asignarle ese agente.
-7. Registrar o revisar **iris-mcp-demo**, aprobado y habilitado, con URL
-   `http://iris-mcp-transport:8080/mcp` desde el backend Docker. Descubrir sus tools
-   y asignar la remota **GetDailyPrices** al agente.
-8. Verificar las cotizaciones para la fecha de la demostración. Se pueden
-   añadir los siete días recientes de precios ficticios con:
+1. Sign in with an enabled demonstration user.
+2. Register an approved model already verified to support tool calling and test
+   its provider connection.
+3. Register and discover `iris-demo` using
+   `http://iris-demo-transport:8080/mcp` from the Docker backend.
+4. Prepare an approved, enabled `demo-operaciones` agent with the inventory
+   `SearchInventory` tool from that server and the chosen model.
+5. Assign its `database-audit` policy; user authorization is mandatory.
+6. In **AI users**, enable the demonstration user and assign that agent.
+7. Register/discover `iris-mcp-demo` at
+   `http://iris-mcp-transport:8080/mcp` and assign its `GetDailyPrices` tool.
+8. Check that the chosen day has quotations. Add missing recent sample days with:
 
 ```powershell
 Get-Content -Raw demo/scripts/seed-prices.script | docker compose exec -T iris-mcp iris session IRIS
 ```
 
-El seed no sustituye precios existentes. Conserva nombres y fechas históricas.
-Los precios son ejemplos en EUR, no información real de mercado. La fecha
-seleccionada en las slides se comparte entre escenarios y se conserva sólo en
-la sesión del navegador. Si no hay cotizaciones para ese día, el resultado
-correcto es informar de su ausencia.
+Prices are fictional EUR values. Seeding preserves existing names, dates and
+amounts. Inventory sample names are English: use `Coffee` or `Rice`. The selected
+quotation day is shared by the prompt scenarios and retained in the browser
+session. If a day has no prices, report their absence.
 
-Instrucciones sugeridas para el agente:
+Suggested agent instructions:
 
 ```text
-Responde en español. Para datos operativos utiliza las herramientas asignadas.
-No inventes stock, precios, fechas ni identificadores. Si no tienes
-acceso o faltan datos, indícalo. Para componer inventario y precios, muestra
-la fecha de la cotización y explica cualquier ambigüedad entre nombres.
+Answer in Spanish. Use assigned tools for operational data. Do not invent stock,
+prices, dates or IDs. Report missing data or access. When combining inventory and
+prices, show the quotation day and explain ambiguities in product-name matching.
 ```
 
-La presentación no crea modelos, agentes, usuarios o servidores ni envía prompts
-automáticamente. Las acciones del guion se realizan de forma visible desde la
-consola. Las respuestas dependen del modelo y de los datos del entorno.
+## Speaker guide
 
-## Guion del ponente
+Allow 20–25 minutes, including the live query. Detailed notes are in `slides.md`
+and Slidev's presenter view (toolbar or `/presenter`).
 
-Duración orientativa: **20–25 minutos**, incluyendo la consulta al agente.
-Las notas detalladas están en los comentarios de `slides.md` y en la vista de
-presentador de Slidev. Se accede a esa vista desde la barra de la presentación
-o añadiendo `/presenter` a la URL.
-
-| Bloque | Slides | Objetivo |
+| Block | Slides | Purpose |
 |---|---|---|
-| Conceptos | 1–6 | Definir los cuatro términos y sus relaciones, sin introducir la demo |
-| Plataforma | 7–14 | Explicar el SDK, agentes, herramientas, policies, ejemplos XML y publicación MCP en IRIS con un ejemplo ObjectScript |
-| Demostración | 15–18 | Presentar AI Orchestrator y el diagrama del caso, preguntar y comprobar las tools ejecutadas |
-| Recapitulación | 19 | Asociar de nuevo cada término con lo observado |
+| Concepts | 1–6 | Define the four terms without introducing the example |
+| Platform | 7–14 | SDK, agents, tools, policies, XML and MCP publication |
+| Demonstration | 15–18 | AI Orchestrator, system diagram, query and audit |
+| Recap | 19 | Relate the concepts to the observed behavior |
 
-La configuración se prepara **antes** de la sesión. En directo, basta con:
+Prepare configuration before the session. Show the agent and its two assigned
+tools, optionally identify the MCP servers, send the prompt on slide 17 and check
+inventory/prices and corresponding audit calls. The example combines two remote
+MCP sources, business inventory and dated prices. The main query does not change
+stock, permissions or service availability. Reserve configuration forms, BPL and
+technical diagnosis for later questions. Product-name matching is a simplification;
+a real deployment should define identifiers and correspondence rules.
 
-1. Mostrar brevemente `demo-operaciones`, su modelo y sus dos herramientas.
-2. Señalar el servidor MCP que ofrece `GetDailyPrices`, si hace falta para
-   relacionarlo con la explicación.
-3. Abrir el chat, seleccionar el agente y enviar el prompt de la slide 17.
-4. Comprobar stock y precio fechado, y mostrar las llamadas correspondientes
-   en auditoría. Si falta un dato, explicarlo sin inventar el resultado.
+Links open frontend anchors such as `#models`, `#agents`, `#mcp`, `#chat` and
+`#audit`. Authentication remains mandatory. Reuse the existing console tab for
+chat continuity. The optional `LiveConsole` component can embed the console.
 
-La única consulta del recorrido principal combina el inventario local con los
-precios del IRIS externo. No cambia stock, permisos ni disponibilidad de servicios.
-Para mantener la charla sencilla, reservar formularios de configuración,
-producciones BPL y diagnósticos técnicos para preguntas posteriores.
+## Optional BPL extension
 
-Los enlaces de las slides abren secciones del frontend mediante anclas como
-`#models`, `#agents`, `#mcp`, `#chat` y `#audit`. Iniciar sesión sigue siendo
-obligatorio. Para mantener una sesión de chat, continuar en la pestaña de la
-consola ya abierta. El componente `LiveConsole` sigue disponible si se desea añadir
-una slide con la consola embebida como ampliación.
+BPL is outside the introductory deck. To prepare a separate technical demo:
+apply `iris/upgrades/bpl-agent.script` if needed, then manually import
+`demo/snippets/AgentDemoProcess.cls` into `APP`. This declares a process but does
+not start or modify a production. In a demonstration production, add an
+`App.Interop.AgentOperation` named **Demo Agent Operation**, select
+`demo-operaciones` through `AgentName`, and add `App.Demo.AgentProcess` plus an
+input service/test mechanism sending `Ens.StringRequest`. Authorize the production
+job's IRIS user (usually `_Ensemble`) for the agent. Send the prompt through
+`StringValue`; read `Ens.StringResponse.StringValue` and the portal trace.
+The BPL process is a demonstration snippet, not a business data class baked into
+the core image. Do not deploy the disposable `iris/tests/bpl-agent/` production
+in a persistent demonstration environment: it changes production and permissions.
 
-## Ampliación técnica opcional: BPL
+## Addresses, build and export
 
-1. Si el namespace APP es persistente y anterior a la nueva operación, aplicar
-   `iris/upgrades/bpl-agent.script`, como se explica en el README principal.
-2. Importar manualmente `demo/snippets/AgentDemoProcess.cls` en **APP**.
-   El archivo sólo declara un proceso; no arranca ni altera la producción.
-3. En una producción de demostración, añadir una operación de clase
-   `App.Interop.AgentOperation` con nombre **Demo Agent Operation**.
-4. Elegir **demo-operaciones** en su único ajuste funcional, `AgentName`.
-5. Añadir el proceso `App.Demo.AgentProcess` y un servicio o mecanismo de pruebas
-   que le envíe `Ens.StringRequest`.
-6. Autorizar al usuario IRIS del job de producción, habitualmente `_Ensemble`,
-   para ese agente mediante **Usuarios IA**.
-7. Enviar el prompt en `StringValue`. Examinar la respuesta en
-   `Ens.StringResponse.StringValue` y la traza en el portal IRIS.
+Docker browser URLs use the root `.env` ports. For npm development, copy
+`.env.example` to `.env.local` in this directory and configure:
 
-No usar la producción de `iris/tests/bpl-agent/` para una sesión persistente.
-Es una prueba técnica desechable, con LLM simulado, que cambia la producción
-activa y crea permisos de prueba. El escenario anterior utiliza el modelo real
-configurado y conserva el funcionamiento del catálogo.
-
-BPL queda fuera de la presentación introductoria. Este ejemplo se conserva
-para una demostración técnica posterior.
-
-## Direcciones y edición
-
-En Docker, las URLs del navegador usan los puertos del `.env` raíz.
-Para ejecución con npm, copiar `demo/.env.example` a `demo/.env.local` y ajustar:
-
-| Variable | Uso |
+| Variable | Purpose |
 |---|---|
-| `VITE_ORCHESTRATOR_URL` | Consola abierta por el navegador |
-| `VITE_IRIS_PORTAL_URL` | Portal de la instancia principal |
-| `VITE_MCP_PORTAL_URL` | Portal del IRIS externo |
-| `DEMO_PROXY_TARGET` | Destino interno del proxy de salud de Slidev |
+| `VITE_ORCHESTRATOR_URL` | Console URL opened by the browser |
+| `VITE_IRIS_PORTAL_URL` | Core IRIS portal |
+| `VITE_MCP_PORTAL_URL` | Pricing IRIS portal |
+| `DEMO_PROXY_TARGET` | Internal health proxy destination |
 
-No introducir contraseñas, API keys, JWT ni tokens en estos archivos o en las
-slides. `DEMO_PROXY_TARGET` no es una URL del navegador. Si el presentador usa
-otro equipo, ajustar las URLs públicas y el acceso al servicio en la configuración
-correspondiente. El puerto Docker de la presentación se publica por defecto
-únicamente en loopback.
-
-## Compilación y exportación
+Do not place passwords, API keys or JWTs in slides or these files. The proxy
+target is not a browser URL. For a remote presentation machine, configure public
+URLs and service access explicitly. The presentation port defaults to loopback.
 
 ```powershell
 cd demo
 npm test
 npm run build
-# Para distribuir una versión web sin las notas del ponente:
 npm run build:public
-# PDF opcional: requiere el navegador de Playwright instalado para Slidev.
+# Optional PDF; requires Slidev's Playwright browser:
 npm run export
 ```
 
-`dist/` contiene la web estática. Su servidor debe resolver las rutas de la SPA.
-Los enlaces a la consola siguen necesitando un backend accesible. La comprobación
-`/demo-api/health` requiere el proxy de desarrollo o uno equivalente en el servidor
-de publicación. Las interacciones del navegador no se conservan como tales en un PDF. Las slides no incluyen fuentes remotas obligatorias.
+`dist/` contains the static SPA; its web server must resolve client routes.
+Console links still need a reachable backend. `/demo-api/health` requires the dev
+proxy or an equivalent published proxy. A PDF does not preserve browser
+interactions. No mandatory remote fonts are used.
 
-Referencias de la integración: [Slidev](https://sli.dev/guide/),
-[configuración de Vite](https://sli.dev/custom/config-vite),
-[estructura de directorios](https://sli.dev/custom/directory-structure) y
-[compilación y publicación](https://sli.dev/guide/hosting).
+References: [Slidev](https://sli.dev/guide/),
+[Vite customization](https://sli.dev/custom/config-vite),
+[directory structure](https://sli.dev/custom/directory-structure),
+[hosting](https://sli.dev/guide/hosting).

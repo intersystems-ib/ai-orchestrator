@@ -1,6 +1,12 @@
-/// Inventory tools hosted in the independent external IRIS instance.
-Class External.MCP.Tools Extends External.Demo.InventoryTools
+/// Explicit product-name and daily-price tool publication.
+Class External.MCP.Tools Extends %AI.ToolSet
 {
-Property Name As %String [ InitialExpression = "ExternalIRIS" ];
-Property Description As %String(MAXLEN = "") [ InitialExpression = "Product names and daily quotations" ];
+XData Definition [ MimeType = application/xml ]
+{
+<ToolSet Name="ExternalIRIS">
+  <Description>Product names and daily quotations</Description>
+  <Include Class="External.Demo.InventoryTools" Tool="SearchInventory"/>
+  <Include Class="External.Demo.InventoryTools" Tool="GetDailyPrices"/>
+</ToolSet>
+}
 }

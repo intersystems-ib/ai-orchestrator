@@ -12,6 +12,7 @@ XData UrlMap
   <Route Url="/health" Method="GET" Call="Health" />
   <Route Url="/mcp-servers" Method="GET" Call="ListMCPServers" />
   <Route Url="/mcp-servers" Method="POST" Call="CreateMCPServer" />
+  <Route Url="/mcp-servers/:serverName" Method="DELETE" Call="DeleteMCPServer" />
   <Route Url="/mcp-servers/:serverName" Method="PUT" Call="UpdateMCPServer" />
   <Route Url="/mcp-servers/:serverName/tools" Method="GET" Call="ListMCPTools" />
   <Route Url="/mcp-servers/:serverName/tools/sync" Method="POST" Call="SynchronizeMCPTools" />
@@ -22,6 +23,7 @@ XData UrlMap
   <Route Url="/providers" Method="GET" Call="Providers" />
   <Route Url="/models" Method="GET" Call="ListModels" />
   <Route Url="/models" Method="POST" Call="CreateModel" />
+  <Route Url="/models/:modelName" Method="DELETE" Call="DeleteModel" />
   <Route Url="/models/:modelName" Method="PUT" Call="UpdateModel" />
   <Route Url="/tools" Method="GET" Call="ListTools" />
   <Route Url="/tools/sync" Method="POST" Call="SynchronizeTools" />
@@ -31,6 +33,7 @@ XData UrlMap
   <Route Url="/agents" Method="GET" Call="ListAgents" />
   <Route Url="/my-agents" Method="GET" Call="ListMyAgents" />
   <Route Url="/agents" Method="POST" Call="CreateAgent" />
+  <Route Url="/agents/:agentName" Method="DELETE" Call="DeleteAgent" />
   <Route Url="/agents/:agentName" Method="PUT" Call="UpdateAgent" />
   <Route Url="/agents/:agentName/tools" Method="GET" Call="GetAgentTools" />
   <Route Url="/agents/:agentName/tools" Method="PUT" Call="SetAgentTools" />
@@ -286,6 +289,29 @@ ClassMethod UpdateResource(className As %String, name As %String) As %Status [ I
         do ..WriteError(sc, 400)
         return $$$OK
     }
+    do ..WriteJSON(result)
+    return $$$OK
+}
+
+ClassMethod DeleteModel(modelName As %String) As %Status
+{
+    return ..DeleteResource("model", modelName)
+}
+
+ClassMethod DeleteAgent(agentName As %String) As %Status
+{
+    return ..DeleteResource("agent", agentName)
+}
+
+ClassMethod DeleteMCPServer(serverName As %String) As %Status
+{
+    return ..DeleteResource("mcp-server", serverName)
+}
+
+ClassMethod DeleteResource(kind As %String, name As %String) As %Status [ Private ]
+{
+    set sc=##class(App.Governance.Deletion).Execute(kind,name,.result,.httpStatus)
+    if $$$ISERR(sc) {do ..WriteError(sc,httpStatus) return $$$OK}
     do ..WriteJSON(result)
     return $$$OK
 }

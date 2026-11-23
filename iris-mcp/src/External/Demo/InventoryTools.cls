@@ -4,10 +4,10 @@ Include %occStatus
 Class External.Demo.InventoryTools Extends %AI.Tool
 {
 
-/// Cotizaciones del día indicado para todos los productos encontrados por iFind.
+/// Get daily prices for every product matched by iFind.
 Method GetDailyPrices(
-    name As %String(DESCRIPTION = "Palabras del nombre del producto; búsqueda iFind en español"),
-    day As %String(DESCRIPTION = "Día de la cotización en formato YYYY-MM-DD")
+    name As %String(DESCRIPTION = "Product name words; English iFind search"),
+    day As %String(DESCRIPTION = "Quotation date in YYYY-MM-DD format")
 ) As %DynamicObject
 {
     set name = $zstrip(name, "<>W")
@@ -31,7 +31,7 @@ Method GetDailyPrices(
     // Explicitly uses the same Spanish iFind index as App.Demo.Inventory.
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, Name, Price, Currency FROM External_Demo.Price " _
-        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') AND Day = ? ORDER BY Name",
+        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'en') AND Day = ? ORDER BY Name",
         name, logicalDay)
     if rs.%SQLCODE < 0 {
         throw ##class(%Exception.StatusException).CreateFromStatus(
@@ -46,13 +46,13 @@ Method GetDailyPrices(
     return {"name":(name), "day":(day), "prices":(prices), "count":(prices.%Size())}
 }
 
-/// Busca nombres de productos con cotizaciones mediante el índice iFind.
-Method SearchInventory(name As %String(DESCRIPTION = "Palabras que debe contener el nombre del producto")) As %DynamicObject
+/// Find product names with daily prices using the iFind index.
+Method SearchInventory(name As %String(DESCRIPTION = "Words to match in the product name")) As %DynamicObject
 {
     set startedAt = $zhorolog
     set resultSet = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT DISTINCT Name FROM External_Demo.Price " _
-        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'es') " _
+        "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'en') " _
         "ORDER BY Name", name)
     return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 25, startedAt)
 }

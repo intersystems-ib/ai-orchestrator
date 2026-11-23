@@ -1,141 +1,172 @@
-# IRIS MCP externo
+# External IRIS pricing MCP server
 
-Instancia independiente para publicar herramientas mediante el servidor MCP
-nativo de AI Hub. Utiliza la misma variable `IRIS_IMAGE` y el mismo patrón de
-Dockerfile que `iris/`, con namespace `MCP`, bases `MCP_CODE` y `MCP_DATA` y
-persistencia propia en `iris-mcp/shared/durable/`.
+**English** | [Español](README_es.md)
 
-`External.MCP.Service` extiende `%AI.MCP.Service` y publica exclusivamente
-`SearchInventory` y `GetDailyPrices`, heredadas de `External.Demo.InventoryTools`
-por `External.MCP.Tools`. No se publican herramientas de diagnóstico ni de alta
-de stock. El endpoint IRIS `/mcp/demo` requiere autenticación Password. Su registro
-se crea durante la construcción de la imagen, después de compilar las clases.
+An independent IRIS instance publishes synthetic daily product quotations with
+AI Hub's native MCP server. It uses `IRIS_IMAGE`, namespace `MCP`, separate
+`MCP_CODE` / `MCP_DATA` databases and `iris-mcp/shared/durable` persistence.
+Inventory and shipments belong to the separate `iris-demo` server.
 
-El servicio `iris-mcp-transport` ejecuta el binario oficial `iris-mcp-server`
-de la misma imagen, conecta con `iris-mcp:1972` y expone el transporte HTTP MCP:
-
-La versión incluida del binario solo admite hosts HTTP de loopback. `serve.py`
-lo ejecuta en `127.0.0.1:8081` y publica la entrada en el puerto `8080` del mismo
-contenedor. Esta entrada comprueba los hosts permitidos de `config.toml`,
-preserva autenticación, sesiones y streaming y reenvía al binario por loopback.
-Esto permite conectar desde la red Docker sin modificar el SDK ni añadir otro
-contenedor.
-
-| Acceso | Dirección por defecto |
-|---|---|
-| MCP desde el backend | `http://iris-mcp-transport:8080/mcp` |
-| MCP desde el equipo local | `http://localhost:8082/mcp` |
-| Portal de la instancia MCP | `http://localhost:52774/csp/sys/UtilHome.csp` |
-| Superserver desde el equipo local | `localhost:1973` |
-
-El puerto HTTP MCP se publica solamente en la interfaz local del equipo.
-`config.toml` obtiene las credenciales de conexión de `IRIS_MCP_USERNAME` y
-`IRIS_MCP_PASSWORD`; los valores por defecto corresponden al usuario de
-desarrollo `CSPSystem/SYS`. Cambiar estas variables requiere que el usuario
-correspondiente ya exista en el IRIS externo.
+`External.MCP.Service` extends `%AI.MCP.Service`, using `External.MCP.Tools` as
+its specification. This `%AI.ToolSet` class explicitly includes methods from `External.Demo.InventoryTools` in XML and exposes
+exactly two methods. The IRIS application `/mcp/demo` requires password authentication.
 
 ```powershell
 docker compose up -d --build iris-mcp iris-mcp-transport
 ```
 
-En la pestaña **Servidores MCP** de la consola se puede registrar este endpoint
-y otros servidores externos. El registro guarda nombre, descripción, URL,
-transporte Streamable HTTP, autenticación y ciclo de vida. El modo Bearer
-acepta únicamente referencias `secret://...` de Secure Wallet.
+| Connection | Default address |
+|---|---|
+| MCP from Orchestrator | `http://iris-mcp-transport:8080/mcp` |
+| MCP from the host | `http://localhost:8082/mcp` |
+| Management Portal | `http://localhost:52774/csp/sys/UtilHome.csp` |
+| Superserver from the host | `localhost:1973` |
 
-Para utilizar las herramientas:
+`iris-mcp-transport` runs the official `iris-mcp-server` binary. The bundled
+version requires a loopback HTTP host, so `serve.py` forwards requests from
+port 8080 to the binary on loopback port 8081, preserving authentication,
+sessions and streaming while validating hosts. Both example servers reuse
+this proxy. It does not implement business tools.
 
-1. Registra el servidor con estado `approved` y habilítalo.
-2. Pulsa **Descubrir herramientas** para consultar e importar su catálogo.
-3. Usa **Ver herramientas** para buscar por nombre o descripción y consultar
-   los parámetros publicados.
-4. Edita un agente y selecciona las tools remotas que podrá ejecutar. Las
-   policies de auditoría se configuran exclusivamente en ese agente.
+`config.toml` gets connection credentials from `IRIS_MCP_USERNAME` and
+`IRIS_MCP_PASSWORD`; development defaults are `CSPSystem/SYS`. The account must
+already exist in IRIS. The host MCP port binds to loopback. Before deployment,
+provision appropriate credentials and access controls for the intended environment.
 
-La sincronización conserva las asignaciones y estados existentes; las tools
-nuevas se incorporan aprobadas y habilitadas, igual que en el descubrimiento
-local. Los nombres locales incorporan la identidad del servidor para evitar
-colisiones entre servidores que publican el mismo método. El nombre remoto
-original se conserva para `tools/call`.
+## Product quotations
 
-Las tools retiradas del servidor se marcan no disponibles. Los fallos de
-conexión o de protocolo no sustituyen el catálogo anterior. Un servidor
-suspendido o deshabilitado no aporta herramientas al agente y se comprueba de
-nuevo antes de cada ejecución. Cambiar la URL o la autenticación invalida las
-tools hasta el siguiente descubrimiento.
+`External.Demo.Price` is the only persistent business data class in this server:
+`Name`, `Day`, `Price`, `Currency`. It has no inventory relationship, SKU or stock.
+A unique `(Name, Day)` index avoids duplicate daily quotes. `NameSearchIndex` is
+`%iFind.Index.Basic(INDEXOPTION=1,LANGUAGE="en",LOWER=1)`, matching the inventory
+server's index. Queries explicitly use `search_index(NameSearchIndex,?,1,'en')`.
+This is word-based full-text matching.
 
-La API de descubrimiento es `POST /api/app/mcp-servers/:serverName/tools/sync`.
-`GET /api/app/mcp-servers/:serverName/tools` consulta las tools importadas.
-El cliente del backend utiliza `%Net.HttpRequest`, negocia la sesión MCP y
-admite respuestas JSON o SSE y catálogos paginados. HTTPS utiliza certificados
-verificados con `APP.MCP.Client` y el almacén de CA del contenedor. Las llamadas
-remotas se registran a través del ToolManager y las policies del agente.
+- `mcp_demo_SearchInventory(name)` lists distinct matching product names.
+- `mcp_demo_GetDailyPrices(name,day)` returns `name`, `day`, `count`, `prices`.
+  Each quotation includes ID, name, day, price and currency. There is no result
+  truncation. Missing matches return an empty array and count zero. Empty names
+  and invalid `YYYY-MM-DD` dates are rejected.
 
-Los registros son datos persistentes del IRIS principal y no se crean desde
-Docker Compose ni se incorporan automáticamente durante el bootstrap.
+Example: `{"name":"Coffee","day":"2026-11-23"}`. Choose a date present in the data.
+The seed creates seven days of fictional EUR prices for 20 English product names,
+ending on the build/seed date. It preserves existing prices and does not refresh
+automatically. Rerun `External.Demo.Bootstrap.Seed()` to add missing recent dates.
+For older Spanish sample data, use [the migration guide](../iris-demo/migration/README.md).
 
-## Productos y cotizaciones diarias
+## Using the catalog
 
-`External.Demo.Price` es la única clase persistente de datos de la demostración
-MCP. Cada registro contiene `Name`, `Day`, `Price` y `Currency`, sin relaciones
-con otras clases. No hay réplica de `App.Demo.Inventory`, SKU ni stock en esta
-instancia. La aplicación principal conserva su inventario original.
+Register an approved, enabled server in **MCP servers**, discover its tools and
+explicitly assign them to agents. Discovery and invocation use the existing
+Orchestrator MCP client (Streamable HTTP, JSON/SSE, pagination and verified HTTPS
+through `APP.MCP.Client`). Audit policies belong to the agent.
 
-La clase tiene un índice único por nombre y día y el mismo índice de nombres
-que `App.Demo.Inventory`:
+Rediscovery preserves tool identities, assignments and lifecycle states; missing
+tools become unavailable. Connection failures preserve the previous catalog.
+Suspending/disabling a server blocks its tools at execution time. Endpoint or
+authentication changes require rediscovery. Bearer credentials use Secure Wallet
+`secret://` references. Server registrations are persisted application data and
+are not automatically created by Compose or the core bootstrap.
 
-```objectscript
-Index NameSearchIndex On (Name) As %iFind.Index.Basic(
-    INDEXOPTION = 1, LANGUAGE = "es", LOWER = 1);
-```
+API: `POST /api/app/mcp-servers/:serverName/tools/sync` discovers tools;
+`GET /api/app/mcp-servers/:serverName/tools` lists imported tools.
 
-Las dos consultas usan explícitamente
-`%ID %FIND search_index(NameSearchIndex, ?, 1, 'es')`, con parámetros SQL enlazados
-y sin joins. Es una búsqueda por palabras en español, no por subcadenas.
-
-- `mcp_demo_SearchInventory(name)` devuelve los nombres distintos de productos
-  con cotizaciones que coinciden con la búsqueda, sin repetirlos por fecha.
-- `mcp_demo_GetDailyPrices(name, day)` devuelve las cotizaciones de los productos
-  coincidentes para una fecha `YYYY-MM-DD`. La respuesta contiene `name`, `day`,
-  `count` y `prices`; cada precio incluye `id`, `name`, `day`, `price` y `currency`.
-  No se truncan los resultados. Si no hay coincidencias devuelve `prices: []` y
-  `count: 0`. Rechaza nombres vacíos y fechas inválidas.
-
-Ejemplo de argumentos para consultar las dos variedades de café:
-
-```json
-{"name":"Café","day":"2026-10-14"}
-```
-
-Al construir la imagen, `External.Demo.Bootstrap.Seed()` crea cotizaciones
-**ficticias en EUR** para 20 nombres de productos y siete días terminando en la
-fecha de construcción. La carga conserva los precios existentes. No hay fuente
-de precios reales ni generación automática de fechas posteriores. Se pueden
-cargar registros directamente en `External_Demo.Price`; ejecutar de nuevo el seed
-añade los ejemplos que falten para los últimos siete días.
-
-## Verificación
+## Verification
 
 ```powershell
 ./iris-mcp/tests/smoke.ps1
-docker cp ./iris-mcp/tests/InventoryTest.cls ai-orchestrator-iris-mcp:/tmp/InventoryTest.cls
+docker cp iris-mcp/tests/InventoryTest.cls ai-orchestrator-iris-mcp:/tmp/InventoryTest.cls
 Get-Content -Raw iris-mcp/tests/inventory.script | docker compose exec -T iris-mcp iris session IRIS
-Get-Content -Raw iris/tests/mcp-prices.script | docker compose exec -T iris iris session IRIS
-Get-Content -Raw iris/tests/mcp-protocol.py | docker compose exec -T iris python3 -
 Get-Content -Raw iris/tests/mcp-tools.script | docker compose exec -T iris iris session IRIS
 ```
 
-La prueba HTTP comprueba que únicamente se publican las dos herramientas de
-productos y cotizaciones, ejecuta ambas y valida el rechazo de fechas inválidas.
-`InventoryTest.cls` prueba iFind, el filtrado por fecha, productos coincidentes,
-validaciones y la idempotencia del seed, revirtiendo los datos de prueba.
-`mcp-prices.script` consulta cotizaciones mediante un agente temporal y comprueba
-su auditoría, revirtiendo sus datos de prueba.
-`iris/tests/mcp-registry.script` comprueba el catálogo en
-el namespace `APP`, incluidos estados, duplicados, URLs y referencias a
-secretos; revierte sus registros de prueba mediante una transacción.
-`mcp-protocol.py` verifica JSON, SSE, paginación, Unicode, autenticación, errores
-y cierre de sesiones con un servidor de prueba local. `mcp-tools.script`
-ejecuta GetDailyPrices desde un agente, comprueba su auditoría, el bloqueo de llamadas
-no asignadas o no disponibles y la conservación de estados al sincronizar;
-revierte los datos de prueba. No realiza inferencias de LLM.
+The HTTP smoke test checks the exact two-method catalog, search, daily quotations
+and invalid-date rejection. The class test covers iFind, day filtering, validation,
+additional matching products and seed idempotence, rolling back test records.
+Core tests `mcp-registry.script`, `mcp-protocol.py`, `mcp-tools.script` and
+`mcp-prices.script` cover registry validation, JSON/SSE/pagination/Unicode/auth,
+governed execution and auditing. They roll back temporary application records;
+`mcp-prices.script` additionally requires an available LLM. See the scripts before
+running them on a persistent deployment.
+
+## Configuring publication in IRIS
+
+Declare publication explicitly through `%AI.ToolSet` to include only the intended methods. In this preview, a wrapper class does not discover methods simply by inheriting them.
+
+```objectscript
+/// Explicit product-name and daily-price tool publication.
+Class External.MCP.Tools Extends %AI.ToolSet
+{
+XData Definition [ MimeType = application/xml ]
+{
+<ToolSet Name="ExternalIRIS">
+  <Description>Product names and daily quotations</Description>
+  <Include Class="External.Demo.InventoryTools" Tool="SearchInventory"/>
+  <Include Class="External.Demo.InventoryTools" Tool="GetDailyPrices"/>
+</ToolSet>
+}
+}
+```
+
+The service class binds the tool specification to the endpoint:
+
+```objectscript
+Class External.MCP.Service Extends %AI.MCP.Service
+{
+Parameter SPECIFICATION As STRING = "External.MCP.Tools";
+}
+```
+
+After compilation, register the application in `%SYS` (`iris.script` already does this):
+
+```objectscript
+set properties("Type")=18
+set properties("NameSpace")="MCP"
+set properties("DispatchClass")="External.MCP.Service"
+set properties("Enabled")=1
+set properties("AutheEnabled")=32
+set sc=##class(Security.Applications).Create("/mcp/demo",.properties)
+```
+
+Configure the transport in `config.toml`; credentials come from the environment:
+
+```toml
+[mcp]
+transport = "http"
+host = "127.0.0.1"
+port = 8081
+base_route = "/mcp"
+allowed_hosts = ["iris-mcp-transport:8080", "localhost", "127.0.0.1"]
+[[iris]]
+name = "external"
+server = { host = "iris-mcp", port = 1972, username = "@{env:IRIS_MCP_USERNAME}", password = "@{env:IRIS_MCP_PASSWORD}" }
+endpoints = [{ path = "/mcp/demo", username = "@{env:IRIS_MCP_USERNAME}", password = "@{env:IRIS_MCP_PASSWORD}" }]
+```
+
+The internal IRIS application path differs from HTTP `/mcp`. The account must have access to the published classes and data. If the application already exists, edit it in the portal instead of creating it again.
+
+## Adding the server to AI Orchestrator
+
+1. Open **MCP servers** ("Servidores MCP") and choose **Register server**.
+2. Set name `iris-mcp-demo`, URL `http://iris-mcp-transport:8080/mcp`, transport `streamable-http`, authentication `none`, status `approved`, and enabled.
+3. Save and choose **Discover tools**. Use **View tools** to inspect names and input schemas.
+4. Edit the agent, assign the permitted remote tools, select its policies and authorize the user in **AI users**.
+5. Open chat and query `Coffee`. Agent auditing records tool calls.
+
+Alternatively use the authenticated API. Body for `POST /api/app/mcp-servers`:
+
+```json
+{
+  "name": "iris-mcp-demo",
+  "displayName": "Daily prices",
+  "endpointUrl": "http://iris-mcp-transport:8080/mcp",
+  "transport": "streamable-http",
+  "authMode": "none",
+  "status": "approved",
+  "enabled": true
+}
+```
+
+Then call `POST /api/app/mcp-servers/iris-mcp-demo/tools/sync`. The response includes imported tools; assign them using the agent editor or `PUT /api/app/agents/:agentName/tools`. Inspect them with `GET /api/app/mcp-servers/iris-mcp-demo/tools`.
+
+`authMode: none` applies to this Docker example transport: the credentials above authenticate the transport to IRIS, not the MCP client. For an endpoint behind a gateway that validates Bearer authentication, use `authMode: bearer` and a Secure Wallet `bearerSecret: secret://<reference>`; never commit tokens or include plaintext tokens in registry JSON.

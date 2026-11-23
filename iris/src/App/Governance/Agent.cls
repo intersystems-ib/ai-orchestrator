@@ -18,6 +18,10 @@ Property Status As %String(VALUELIST = ",draft,approved,suspended,retired") [ In
 Property Enabled As %Boolean [ InitialExpression = 1 ];
 Property CreatedAt As %TimeStamp;
 
+/// Zero inherits model capacity minus the response reserve.
+Property ContextBudget As %Integer(MINVAL = 0) [ InitialExpression = 0 ];
+Property ResponseReserve As %Integer(MINVAL = 64) [ InitialExpression = 1024 ];
+
 Index NameIndex On Name [ Unique ];
 
 ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) As %Status
@@ -39,6 +43,11 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set sc = ##class(App.Governance.AgentDelegate).Validate(name, delegates)
     if $$$ISERR(sc) return sc
 
+    set contextBudget = payload.%Get("contextBudget", 0)
+    set responseReserve = payload.%Get("responseReserve", 1024)
+    set sc = ##class(App.AIHub.ContextBudget).ValidateAgent(modelName, contextBudget, responseReserve)
+    if $$$ISERR(sc) return sc
+
     tstart
     set item = ..%New()
     set item.Name = name
@@ -46,6 +55,8 @@ ClassMethod Create(payload As %DynamicObject, Output result As %DynamicObject) A
     set item.ModelName = modelName
     set item.SystemPrompt = payload.%Get("systemPrompt", "")
     set item.Temperature = payload.%Get("temperature", 0.2)
+    set item.ContextBudget = contextBudget
+    set item.ResponseReserve = responseReserve
     set item.MaxIterations = payload.%Get("maxIterations", 10)
     set item.Policies = ##class(App.Governance.ClassUtil).ArrayToCSV(policies)
     set item.Status = status
@@ -82,11 +93,18 @@ ClassMethod Update(name As %String, payload As %DynamicObject,
     set sc = ##class(App.Governance.AgentDelegate).Validate(name, delegates)
     if $$$ISERR(sc) return sc
 
+    set contextBudget = payload.%Get("contextBudget", item.ContextBudget)
+    set responseReserve = payload.%Get("responseReserve", item.ResponseReserve)
+    set sc = ##class(App.AIHub.ContextBudget).ValidateAgent(modelName, contextBudget, responseReserve)
+    if $$$ISERR(sc) return sc
+
     tstart
     set item.DisplayName = payload.%Get("displayName", item.DisplayName)
     set item.ModelName = modelName
     set item.SystemPrompt = payload.%Get("systemPrompt", item.SystemPrompt)
     set item.Temperature = payload.%Get("temperature", item.Temperature)
+    set item.ContextBudget = contextBudget
+    set item.ResponseReserve = responseReserve
     set item.MaxIterations = payload.%Get("maxIterations", item.MaxIterations)
     set item.Policies = ##class(App.Governance.ClassUtil).ArrayToCSV(policies)
     set item.Status = status
@@ -138,7 +156,7 @@ ClassMethod ListJSON(username As %String = "") As %DynamicArray
     set output = []
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, Name, DisplayName, ModelName, SystemPrompt, Temperature, MaxIterations, " _
-        "Policies, Status, Enabled, CreatedAt FROM App_Governance.Agent ORDER BY Name")
+        "ContextBudget, ResponseReserve, Policies, Status, Enabled, CreatedAt FROM App_Governance.Agent ORDER BY Name")
     while rs.%Next() {
         if username '= "", '##class(App.Governance.AgentUser).IsAuthorized(username, rs.%Get("Name")) continue
         do output.%Push({
@@ -146,6 +164,7 @@ ClassMethod ListJSON(username As %String = "") As %DynamicArray
             "displayName":(rs.%Get("DisplayName")), "modelName":(rs.%Get("ModelName")),
             "systemPrompt":(rs.%Get("SystemPrompt")), "temperature":(rs.%Get("Temperature")),
             "maxIterations":(rs.%Get("MaxIterations")),
+            "contextBudget":(+rs.%Get("ContextBudget")), "responseReserve":(+rs.%Get("ResponseReserve")),
             "tools":(##class(App.Governance.AgentTool).ListForAgent(rs.%Get("Name"))),
             "delegates":(##class(App.Governance.AgentDelegate).ListForAgent(rs.%Get("Name"))),
             "policies":(##class(App.Governance.ClassUtil).CSVToArray(rs.%Get("Policies"))),
@@ -161,6 +180,7 @@ ClassMethod OneJSON(item As App.Governance.Agent) As %DynamicObject [ Internal, 
     return {
         "id":(item.%Id()), "name":(item.Name), "displayName":(item.DisplayName),
         "modelName":(item.ModelName), "systemPrompt":(item.SystemPrompt),
+        "contextBudget":(+item.ContextBudget), "responseReserve":(+item.ResponseReserve),
         "temperature":(item.Temperature), "maxIterations":(item.MaxIterations),
         "tools":(##class(App.Governance.AgentTool).ListForAgent(item.Name)),
         "delegates":(##class(App.Governance.AgentDelegate).ListForAgent(item.Name)),

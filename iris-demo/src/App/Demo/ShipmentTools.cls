@@ -2,8 +2,8 @@
 Class App.Demo.ShipmentTools Extends %AI.Tool
 {
 
-/// Consulta los envíos que contienen un producto concreto de Inventory.
-Method SearchShipmentsByProduct(productId As %Integer(DESCRIPTION = "Identificador ID del producto en App.Demo.Inventory")) As %DynamicObject
+/// Find shipments containing a specific inventory product.
+Method SearchShipmentsByProduct(productId As %Integer(DESCRIPTION = "Product ID in App.Demo.Inventory")) As %DynamicObject
 {
     set startedAt = $zhorolog
     set resultSet = ##class(%SQL.Statement).%ExecDirect(,
@@ -18,10 +18,10 @@ Method SearchShipmentsByProduct(productId As %Integer(DESCRIPTION = "Identificad
     return ##class(%AI.Tools.SQL).FormatResultSet(resultSet, 50, startedAt)
 }
 
-/// Extrae envíos por fecha de envío. Cualquiera de los dos límites puede omitirse.
+/// Find shipments by shipping date. Either date limit can be omitted.
 Method SearchShipmentsByDateRange(
-    startDate As %String(DESCRIPTION = "Fecha inicial inclusiva en formato YYYY-MM-DD; dejar vacía si no hay límite inferior") = "",
-    endDate As %String(DESCRIPTION = "Fecha final inclusiva en formato YYYY-MM-DD; dejar vacía si no hay límite superior") = "") As %DynamicObject
+    startDate As %String(DESCRIPTION = "Inclusive start date in YYYY-MM-DD format; leave empty for no lower limit") = "",
+    endDate As %String(DESCRIPTION = "Inclusive end date in YYYY-MM-DD format; leave empty for no upper limit") = "") As %DynamicObject
 {
     set startedAt = $zhorolog
     set startValue = ""

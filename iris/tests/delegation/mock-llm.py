@@ -21,10 +21,10 @@ class Handler(BaseHTTPRequestHandler):
         selected = None
         if parent and not results:
             selected = next(t for t in tools if t.startswith('delegate_agent_'))
-            arguments = {'prompt': 'Consulta café y existencias'}
+            arguments = {'prompt': 'Check coffee inventory'}
         elif len(results) < (2 if parent else 1):
             selected = next(t for t in tools if t == 'SearchInventory')
-            arguments = {'name': 'Café'}
+            arguments = {'name': 'Coffee'}
         if selected:
             message = {'role': 'assistant', 'content': None, 'tool_calls': [{
                 'id': 'call-' + str(len(results)), 'type': 'function',
@@ -32,7 +32,7 @@ class Handler(BaseHTTPRequestHandler):
             }]}
             finish = 'tool_calls'
         else:
-            text = 'SPECIALIST:inventario consultado'
+            text = 'SPECIALIST:inventory checked'
             if parent:
                 text = 'DELEGATION_OK' if 'SPECIALIST:' in json.dumps(results) else 'MISSING_SPECIALIST'
             message = {'role': 'assistant', 'content': text}

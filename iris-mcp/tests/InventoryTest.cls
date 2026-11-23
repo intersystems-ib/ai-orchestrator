@@ -5,7 +5,7 @@ ClassMethod Run() As %Integer
     set failures=0
     tstart
     try {
-        set tool=##class(External.MCP.Tools).%New(), day=$zdate(+$horolog,3), word=$char(67,97,102,233)
+        set tool=##class(External.Demo.InventoryTools).%New(), day=$zdate(+$horolog,3), word="Coffee"
         set result=tool.GetDailyPrices(word,day)
         if result.count '= 2 { set failures=failures+1 write "FAIL multiple coffee products",! }
         set first=result.prices.%Get(0)
@@ -16,7 +16,7 @@ ClassMethod Run() As %Integer
         if empty.count '= 0 { set failures=failures+1 write "FAIL absent day",! }
         set empty=tool.GetDailyPrices("zzunknownproduct",day)
         if empty.count '= 0 { set failures=failures+1 write "FAIL absent name",! }
-        set empty=tool.GetDailyPrices("caf",day)
+        set empty=tool.GetDailyPrices("cof",day)
         if empty.count '= 0 { set failures=failures+1 write "FAIL full-text word matching",! }
         set lower=tool.GetDailyPrices($zconvert(word,"L"),day)
         if lower.count '= 2 { set failures=failures+1 write "FAIL lowercase iFind",! }
@@ -28,7 +28,7 @@ ClassMethod Run() As %Integer
         set rejected=0
         try { set ignored=tool.GetDailyPrices("   ",day) } catch error { set rejected=1 }
         if 'rejected { set failures=failures+1 write "FAIL empty name",! }
-        set quote=##class(External.Demo.Price).%New(), quote.Name=word_" especial", quote.Day=+$horolog, quote.Price=9.99
+        set quote=##class(External.Demo.Price).%New(), quote.Name=word_" special", quote.Day=+$horolog, quote.Price=9.99
         set sc=quote.%Save()
         if '$SYSTEM.Status.IsOK(sc) { throw ##class(%Exception.StatusException).CreateFromStatus(sc) }
         set result=tool.GetDailyPrices(word,day)

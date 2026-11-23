@@ -10,12 +10,12 @@ Property Currency As %String(VALUELIST = ",EUR") [ InitialExpression = "EUR", Re
 
 Index NameDay On (Name, Day) [ Unique ];
 Index NameSearchIndex On (Name) As %iFind.Index.Basic(
-    INDEXOPTION = 1, LANGUAGE = "es", LOWER = 1);
+    INDEXOPTION = 1, LANGUAGE = "en", LOWER = 1);
 
 /// Creates seven days of synthetic EUR quotations without overwriting prices.
 ClassMethod SeedDemo() As %Status
 {
-    set products = ["Café molido premium","Té verde ecológico","Chocolate negro 85%","Galletas de avena","Aceite de oliva virgen extra","Arroz integral","Pasta artesanal","Salsa de tomate casera","Miel de montaña","Mermelada de fresa","Leche de almendras","Cereales integrales","Harina de trigo ecológica","Garbanzos cocidos","Atún en aceite de oliva","Crema de cacahuete","Frutos secos variados","Agua mineral natural","Zumo de naranja","Café en grano descafeinado"]
+    set products = ["Premium ground coffee","Organic green tea","85% dark chocolate","Oat cookies","Extra virgin olive oil","Brown rice","Artisan pasta","Homemade tomato sauce","Mountain honey","Strawberry jam","Almond milk","Whole grain cereal","Organic wheat flour","Cooked chickpeas","Tuna in olive oil","Peanut butter","Mixed nuts","Natural mineral water","Orange juice","Decaffeinated coffee beans"]
     for index = 0:1:(products.%Size()-1) {
         set name = products.%Get(index)
         for offset = 0:1:6 {

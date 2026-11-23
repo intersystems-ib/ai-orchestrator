@@ -1,37 +1,36 @@
-# Delegación entre agentes registrados
+# Registered-agent delegation tests
 
-Prueba de integración con el SDK real de AI Hub y un proveedor HTTP local
-determinista. No utiliza credenciales ni modelos externos. Ejecutar únicamente
-en un contenedor temporal sin volúmenes persistentes; crea agentes, modelos y
-permisos de prueba.
+**English** | [Español](README_es.md)
+
+Run only in a disposable container without persistent volumes. Tests create
+agents, models and user permissions using the real AI Hub SDK and a local HTTP
+LLM fixture. No external provider or credentials are used.
 
 ```powershell
 docker compose build iris
 docker run -d --name ai-orchestrator-delegation-test ai-orchestrator-iris --check-caps false --ISCAgent false
-# Esperar a que la instancia termine de arrancar.
+# Wait for IRIS startup before continuing.
+docker cp iris-demo/src/App/Demo ai-orchestrator-delegation-test:/tmp/test-demo
 docker cp iris/tests/delegation ai-orchestrator-delegation-test:/tmp/delegation-tests
 docker exec -d ai-orchestrator-delegation-test python3 /tmp/delegation-tests/mock-llm.py
 Get-Content -Raw iris/tests/delegation/run.script | docker exec -i ai-orchestrator-delegation-test iris session IRIS
 docker rm -f ai-orchestrator-delegation-test
 ```
 
-Resultado esperado: `DELEGATION_FAILURES=0`. La prueba comprueba:
+Expected marker: `DELEGATION_FAILURES=0`. Business tools are loaded explicitly as
+test fixtures; they are not included in the core image. Assertions cover assignment
+persistence and partial updates; invalid references, duplicates and cycles;
+discovery; user authorization and revocation; separate model/instruction/session
+state; coordinator → specialist → inventory calls followed by a local call;
+agent audit correlation; context restoration; depth and call budgets; native
+statistics through the interoperability response, cumulative statistics across
+session reload and independent statistics in a new conversation.
 
-- Persistencia y actualización parcial de las asignaciones, referencias inválidas,
-  duplicados, autorreferencias y ciclos.
-- Catálogo de herramientas del coordinador con una herramienta por agente delegado.
-- Autorización del usuario en ambos agentes y revocación durante la ejecución.
-- Conversaciones e instrucciones independientes y uso del modelo del especialista.
-- Llamada real coordinador → herramienta → especialista → inventario y continuación
-  del coordinador con una herramienta propia.
-- Auditoría atribuida a cada agente, correlacionada con el mismo RequestId.
-- Restauración del contexto tras errores y límites de profundidad y llamadas.
+Specialists run in separate IRIS jobs to avoid native runtime re-entry from a
+tool callback. No BPL or running production is required. Temporary results are
+removed on completion or after a 120-second caller timeout; a timed-out worker
+may finish later, but its late result is discarded. Limits are three delegation
+levels and sixteen delegated calls per request.
 
-El especialista se ejecuta en otro job IRIS para evitar reentrar en el runtime
-nativo del proveedor durante un callback de herramienta. No necesita una producción
-de interoperabilidad ni un BPL. Los resultados temporales se eliminan al volver o
-al vencer el tiempo de espera de 120 segundos. Los límites actuales son tres
-niveles de delegación y dieciséis llamadas delegadas por petición.
-
-`nginx.conf` permite revisar el frontal en una red Docker temporal cuyo servidor
-IRIS tenga el alias `delegation-iris`; no cambia la configuración del despliegue.
+`nginx.conf` supports UI checks on an isolated Docker network with the IRIS alias
+`delegation-iris`, without changing the normal deployment.

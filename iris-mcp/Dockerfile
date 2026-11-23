@@ -1,4 +1,4 @@
-ARG IMAGE=docker.iscinternal.com/docker-intersystems/intersystems/iris-community:2026.2.0AI.162.0
+ARG IMAGE=intersystems/iris-community:2027.1.0AI.109.0
 FROM ${IMAGE}
 
 USER root

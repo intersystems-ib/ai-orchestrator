@@ -7,6 +7,8 @@ external Host here before forwarding to its loopback authority.
 import http.client
 import http.server
 import signal
+import socket
+import time
 import subprocess
 import threading
 import tomllib
@@ -87,7 +89,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
+def wait_for_backends():
+    # Compose restart does not honor startup dependencies. Avoid starting the
+    # native MCP client offline: build 109 can retain an unauthorized discovery
+    # session after reconnecting from a cold IRIS startup.
+    for backend in configuration.get('iris', []):
+        endpoint = backend['server']
+        waiting = False
+        while True:
+            try:
+                with socket.create_connection((endpoint['host'], endpoint.get('port', 1972)), timeout=3):
+                    break
+            except OSError:
+                if not waiting:
+                    print('Waiting for IRIS backend before starting MCP transport', flush=True)
+                    waiting = True
+                time.sleep(2)
+
+
 if __name__ == '__main__':
+    wait_for_backends()
     child = subprocess.Popen(['/usr/irissys/bin/iris-mcp-server', '--config',
                               '/etc/iris-mcp/config.toml', 'run'])
     server = http.server.ThreadingHTTPServer(('0.0.0.0', 8080), Handler)

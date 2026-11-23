@@ -1,3 +1,4 @@
+import { ActionIcon, DeleteRecordDialog } from "./RecordActions";
 import { FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "./i18n";
 
@@ -14,6 +15,8 @@ export function MCPServersView({request, refresh}: {request: Request; refresh: (
   const {t} = useI18n();
   const [servers, setServers] = useState<Server[]>([]);
   const [error, setError] = useState("");
+  const [deleting,setDeleting]=useState<Server|null>(null);
+  const [deleteError,setDeleteError]=useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Server | null | undefined>(undefined);
   const [selected, setSelected] = useState<Server | null>(null);
@@ -43,6 +46,16 @@ export function MCPServersView({request, refresh}: {request: Request; refresh: (
     } catch (reason) { setError(reason instanceof Error ? reason.message : t("error.load")); }
     finally { setWorking(false); }
   }
+  async function removeServer(server:Server) {
+    setWorking(true);setError("");
+    try {
+      await request(`/mcp-servers/${encodeURIComponent(server.name)}`,{method:"DELETE"});
+      setDeleting(null);
+      if(selected?.name===server.name){setSelected(null);setTools([]);}
+      await Promise.all([reload(),refresh()]);
+    } catch(reason){setDeleteError(reason instanceof Error?reason.message:t("error.delete"));}
+    finally{setWorking(false);}
+  }
   const filtered = tools.filter(tool => `${tool.remoteName} ${tool.name} ${tool.description}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   async function savedServer() {
     await Promise.all([reload(), refresh()]);
@@ -61,7 +74,7 @@ export function MCPServersView({request, refresh}: {request: Request; refresh: (
         <td><code>{server.endpointUrl}</code><small>{server.transport}</small>{server.lastDiscoveryAt && <small>{t("mcp.lastDiscovery")}: {server.lastDiscoveryAt}</small>}</td>
         <td>{t(`mcp.auth.${server.authMode}`)}</td>
         <td><span className={`status status-${server.enabled ? server.status : "suspended"}`}><i/>{t(server.enabled ? `status.${server.status}` : "status.disabled")}</span></td>
-        <td><button className="secondary" disabled={working} onClick={() => setEditing(server)}>{t("common.edit")}</button><button className="secondary" disabled={working} onClick={() => void loadTools(server, false)}>{t("mcp.viewTools")}</button><button className="primary" disabled={working || server.status !== "approved" || !server.enabled} onClick={() => void loadTools(server, true)}>{t(working && selected?.name === server.name ? "resource.syncing" : "mcp.discover")}</button></td>
+        <td><ActionIcon action="edit" label={t("actions.editRecord",{name:server.name})} disabled={working} onClick={()=>setEditing(server)}/><ActionIcon action="delete" label={t("actions.deleteRecord",{name:server.name})} disabled={working} onClick={()=>{setDeleteError("");setDeleting(server)}}/><ActionIcon action="tools" label={t("mcp.viewTools")} disabled={working} onClick={()=>void loadTools(server,false)}/><ActionIcon action="discover" label={t(working&&selected?.name===server.name?"resource.syncing":"mcp.discover")} disabled={working||server.status!=="approved"||!server.enabled} onClick={()=>void loadTools(server,true)}/></td>
       </tr>)}{!servers.length && <tr><td colSpan={5} className="empty">{t(loading ? "common.connecting" : "mcp.empty")}</td></tr>}</tbody>
     </table></section>
     {selected && <ToolsDialog title={t("mcp.toolsTitle", {server: selected.displayName})} close={() => setSelected(null)}>
@@ -76,6 +89,7 @@ export function MCPServersView({request, refresh}: {request: Request; refresh: (
       </tbody></table>
       </section>
     </ToolsDialog>}
+    {deleting&&<DeleteRecordDialog name={deleting.name} displayName={deleting.displayName} kind={t("delete.kind.server")} description={t("delete.serverDescription")} busy={working} error={deleteError} close={()=>setDeleting(null)} confirm={()=>void removeServer(deleting)}/>}
     {editing !== undefined && <ServerDialog server={editing} request={request} close={() => setEditing(undefined)} saved={savedServer}/>}
   </>;
 }

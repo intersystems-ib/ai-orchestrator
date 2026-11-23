@@ -6,6 +6,7 @@ demo/node_modules
 demo/dist
 iris/shared/durable*
 iris-mcp/shared/durable*
+iris-demo/shared/durable*
 webgateway/shared/durable
 models/*.gguf
 *.log

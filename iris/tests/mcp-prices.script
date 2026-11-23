@@ -18,7 +18,7 @@ if '$SYSTEM.Status.IsOK(sc) { write "FAIL permission",! trollback halt }
 do ##class(App.AIHub.RuntimeContext).SetRequest(prefix,"CSPSystem")
 set sc=##class(App.AIHub.AgentFactory).Create(prefix,.agent)
 if '$SYSTEM.Status.IsOK(sc) { write "FAIL factory: ",$SYSTEM.Status.GetErrorText(sc),! trollback halt }
-set result=agent.ToolManager.ExecuteTool(priceName,{"name":($char(67,97,102,233)),"day":($zdate(+$horolog,3))})
+set result=agent.ToolManager.ExecuteTool(priceName,{"name":("Coffee"),"day":($zdate(+$horolog,3))})
 set quotes=##class(%DynamicObject).%FromJSON(result.%Get("value").%Get("content").%Get(0).%Get("text"))
 write "AGENT_QUOTATIONS=",quotes.%ToJSON(),!
 if quotes.count '= 2 { set failures=failures+1 write "FAIL remote quotation results",! }

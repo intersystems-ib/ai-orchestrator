@@ -1,0 +1,7 @@
+zn "APP"
+set sc=$SYSTEM.OBJ.Load("/tmp/demo-migration/LegacyData.cls","ck")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+set sc=##class(Demo.Migration.LegacyData).Export("/tmp/demo-data.jsonl")
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
+write "DEMO_EXPORT_OK",!
+halt

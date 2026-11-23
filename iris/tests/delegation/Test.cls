@@ -36,10 +36,10 @@ Method Run() As %Integer
             "SELECT Name FROM App_Governance.Tool WHERE ClassName='App.Demo.InventoryTools' AND MethodName='SearchInventory'")
         do rs.%Next()
         set inventory = rs.%Get("Name")
-        do ..Require(##class(App.Governance.Agent).Create({"name":"delegation-specialist", "displayName":"Especialista de inventario",
+        do ..Require(##class(App.Governance.Agent).Create({"name":"delegation-specialist", "displayName":"Inventory specialist",
             "modelName":"delegation-specialist", "systemPrompt":"SPECIALIST_ONLY", "status":"approved",
             "tools":[(inventory)], "policies":["database-audit"]}, .child))
-        do ..Require(##class(App.Governance.Agent).Create({"name":"delegation-parent", "displayName":"Coordinador de consultas",
+        do ..Require(##class(App.Governance.Agent).Create({"name":"delegation-parent", "displayName":"Query coordinator",
             "modelName":"delegation-parent", "systemPrompt":"PARENT_ONLY", "status":"approved",
             "tools":[(inventory)], "delegates":["delegation-specialist"], "policies":["database-audit"]}, .parent))
         do ..Check(parent.delegates.%Get(0) = "delegation-specialist", "create returns assignments")
@@ -71,7 +71,7 @@ Method Run() As %Integer
         // Exercise the real nested Chat -> ToolManager -> specialist Chat loop.
         set request = ##class(App.Interop.Message.ChatRequest).%New()
         set request.RequestId = "delegation-end-to-end", request.AgentName = "delegation-parent"
-        set request.Username = $username, request.Message = "Consulta al especialista y comprueba el inventario"
+        set request.Username = $username, request.Message = "Consulta al specialista y comprueba el inventario"
         do ..Require(##class(App.Interop.LLMOperation).Execute(request, .response))
         do ..Check(response.Success, "nested inference: " _ response.Error)
         if response.Success {
@@ -91,6 +91,27 @@ Method Run() As %Integer
             "SELECT COUNT(*) AS N FROM App_Governance.ChatConversation WHERE AgentName IN ('delegation-parent','delegation-specialist')")
         do rs.%Next()
         do ..Check(rs.%Get("N") = 2, "independent parent and specialist sessions")
+
+        // Stats must survive the interoperability JSON envelope and OpenSession().
+        set firstStats = result.statistics
+        do ..Check($isobject(firstStats), "native session statistics returned")
+        do ..Check(firstStats."total_tool_calls" = 2, "parent statistics exclude specialist tool calls")
+        do ..Check(firstStats."total_prompt_tokens" > 0, "provider token usage exposed")
+        set request.ConversationId = result.conversationId
+        set request.RequestId = "statistics-continuation", request.Message = "Continue the conversation"
+        do ..Require(##class(App.Interop.LLMOperation).Execute(request, .response))
+        do ..Check(response.Success, "statistics continuation: " _ response.Error)
+        set continued = {}.%FromJSON(response.ResultJSON)
+        do ..Check(continued.conversationId = request.ConversationId, "same conversation retained")
+        do ..Check(continued.statistics."total_prompt_tokens" > firstStats."total_prompt_tokens", "token statistics accumulate after native session reload")
+        do ..Check(continued.statistics."total_interactions" > firstStats."total_interactions", "interaction statistics accumulate")
+        do ..Check(continued.statistics."total_tool_calls" = 2, "continuation does not invent tool calls")
+        set request.ConversationId = "", request.RequestId = "statistics-new-session"
+        do ..Require(##class(App.Interop.LLMOperation).Execute(request, .response))
+        do ..Check(response.Success, "fresh statistics session: " _ response.Error)
+        set fresh = {}.%FromJSON(response.ResultJSON)
+        do ..Check(fresh.conversationId '= continued.conversationId, "new conversation has own identifier")
+        do ..Check(fresh.statistics."total_prompt_tokens" = firstStats."total_prompt_tokens", "new session starts independent statistics")
 
         do ##class(App.AIHub.RuntimeContext).SetRequest("delegation-negative", $username)
         do ##class(App.AIHub.RuntimeContext).SetAgent("delegation-parent")
