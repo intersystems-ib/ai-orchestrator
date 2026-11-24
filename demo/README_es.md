@@ -129,20 +129,17 @@ una slide con la consola embebida como ampliación.
 
 ## Ampliación técnica opcional: BPL
 
-1. Si el namespace APP es persistente y anterior a la nueva operación, aplicar
-   `iris/upgrades/bpl-agent.script`, como se explica en el README principal.
-2. Importar manualmente `demo/snippets/AgentDemoProcess.cls` en **APP**.
+1. Importar manualmente `demo/snippets/AgentDemoProcess.cls` en **APP**.
    El archivo sólo declara un proceso; no arranca ni altera la producción.
-3. En una producción de demostración, añadir una operación de clase
+2. En una producción de demostración, añadir una operación de clase
    `App.Interop.AgentOperation` con nombre **Demo Agent Operation**.
-4. Elegir **demo-operaciones** en su único ajuste funcional, `AgentName`.
-5. Añadir el proceso `App.Demo.AgentProcess` y un servicio o mecanismo de pruebas
+3. Elegir **demo-operaciones** en su único ajuste funcional, `AgentName`.
+4. Añadir el proceso `App.Demo.AgentProcess` y un servicio o mecanismo de pruebas
    que le envíe `Ens.StringRequest`.
-6. Autorizar al usuario IRIS del job de producción, habitualmente `_Ensemble`,
+5. Autorizar al usuario IRIS del job de producción, habitualmente `_Ensemble`,
    para ese agente mediante **Usuarios IA**.
-7. Enviar el prompt en `StringValue`. Examinar la respuesta en
+6. Enviar el prompt en `StringValue`. Examinar la respuesta en
    `Ens.StringResponse.StringValue` y la traza en el portal IRIS.
-
 No usar la producción de `iris/tests/bpl-agent/` para una sesión persistente.
 Es una prueba técnica desechable, con LLM simulado, que cambia la producción
 activa y crea permisos de prueba. El escenario anterior utiliza el modelo real
@@ -190,3 +187,10 @@ Referencias de la integración: [Slidev](https://sli.dev/guide/),
 [configuración de Vite](https://sli.dev/custom/config-vite),
 [estructura de directorios](https://sli.dev/custom/directory-structure) y
 [compilación y publicación](https://sli.dev/guide/hosting).
+
+El modelo debe declarar la capacidad real `maxContextTokens` de su endpoint
+(Llama 16384 y Qwen 4096 con Compose predeterminado). Configura el presupuesto
+de entrada y la reserva de respuesta del agente. El chat tiene las pestañas Chat
+y Estadísticas de la conversación y conserva el borrador al alternarlas. Las
+acciones MCP son iconos de lista/actualización con ayuda; las tools se consultan
+en su modal.

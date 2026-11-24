@@ -44,10 +44,8 @@ ClassMethod Send(agentName As %String, message As %String,
         // for this process using the preview SDK's session lifecycle API.
         set session = agent.OpenSession(rs.%Get("SessionId"), config)
         if '$isobject(session) return $$$ERROR($$$GeneralError, "AI Hub session is no longer available")
-        if conversation.SessionState '= "" {
-            set sc = session.Import(conversation.SessionState)
-            if $$$ISERR(sc) return sc
-        }
+        set sc = session.Import(conversation.SessionState)
+        if $$$ISERR(sc) return sc
     }
 
     try {
@@ -58,7 +56,7 @@ ClassMethod Send(agentName As %String, message As %String,
         set content = response.Content
         set sc = session.%Save()
         // Keep the public SDK export alongside ownership and transcript for
-        // explicit state restoration across application requests and upgrades.
+        // explicit state restoration across application requests.
         set sessionState = session.Export()
     } catch exception {
         set sc = exception.AsStatus()

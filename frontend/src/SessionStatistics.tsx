@@ -6,7 +6,7 @@ export type SessionStats = Partial<Record<
   "current_context_tokens" | "model_context_size" | "total_reasoning_tokens" |
   "total_cache_creation_tokens" | "total_cache_read_tokens", number>>;
 
-export type ContextLimits = {inputBudget:number; responseReserve:number; modelCapacity:number; summarized:boolean|number; summaryMethod?:"none"|"sdk"|"blocks"; lastSummarizedAt?:string; lastSummaryMethod?:"sdk"|"blocks"|""; summaryCount?:number};
+export type ContextLimits = {inputBudget:number; responseReserve:number; modelCapacity:number; summarized:boolean|number; summaryMethod:"none"|"sdk"|"blocks"; lastSummarizedAt:string; lastSummaryMethod:"sdk"|"blocks"|""; summaryCount:number};
 
 export function SessionStatistics({stats, pending, limits}: {stats: SessionStats | null; pending: boolean; limits?:ContextLimits|null}) {
   const {t, language} = useI18n();
@@ -36,8 +36,8 @@ export function SessionStatistics({stats, pending, limits}: {stats: SessionStats
   ];
   if(limits) rows.push(["declaredCapacity",format.format(limits.modelCapacity)],["inputBudget",format.format(limits.inputBudget)],["responseReserve",format.format(limits.responseReserve)],["summarized",t(limits.summarized?"common.yes":"common.no")]);
   if(limits) {
-    const method=limits.lastSummaryMethod||(limits.summarized?limits.summaryMethod:undefined);
-    rows.push(["lastSummaryAt",limits.lastSummarizedAt||"—"],["summaryMethod",method==="sdk"?t("chat.stats.methodSDK"):method==="blocks"?t("chat.stats.methodBlocks"):"—"],["summaryCount",format.format(limits.summaryCount??0)]);
+    const method=limits.lastSummaryMethod;
+    rows.push(["lastSummaryAt",limits.lastSummarizedAt||"—"],["summaryMethod",method==="sdk"?t("chat.stats.methodSDK"):method==="blocks"?t("chat.stats.methodBlocks"):"—"],["summaryCount",format.format(limits.summaryCount)]);
   }
   const extras: [string, keyof SessionStats][] = [["reasoningTokens", "total_reasoning_tokens"], ["cacheRead", "total_cache_read_tokens"], ["cacheCreation", "total_cache_creation_tokens"], ["toolTime", "total_tool_duration_ms"]];
   for (const [label, key] of extras) {

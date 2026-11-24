@@ -170,6 +170,8 @@ Parameter SPECIFICATION As STRING = "External.MCP.Tools";
 }
 ```
 
+Compila las clases de herramientas de negocio antes que el ToolSet XML: su generador resuelve los métodos incluidos durante la compilación. La construcción de la imagen aplica este orden y comprueba el número de herramientas publicadas.
+
 Después de compilar, registra la aplicación en `%SYS` (ya lo hace `iris.script`):
 
 ```objectscript
@@ -178,6 +180,7 @@ set properties("NameSpace")="MCP"
 set properties("DispatchClass")="External.MCP.Service"
 set properties("Enabled")=1
 set properties("AutheEnabled")=32
+set properties("MatchRoles")=":%All"
 set sc=##class(Security.Applications).Create("/mcp/demo",.properties)
 ```
 
@@ -193,6 +196,7 @@ allowed_hosts = ["iris-mcp-transport:8080", "localhost", "127.0.0.1"]
 [[iris]]
 name = "external"
 server = { host = "iris-mcp", port = 1972, username = "@{env:IRIS_MCP_USERNAME}", password = "@{env:IRIS_MCP_PASSWORD}" }
+pool = { min = 1, max = 3 }
 endpoints = [{ path = "/mcp/demo", username = "@{env:IRIS_MCP_USERNAME}", password = "@{env:IRIS_MCP_PASSWORD}" }]
 ```
 
@@ -202,7 +206,7 @@ La ruta interna de IRIS y la ruta HTTP `/mcp` son distintas. La cuenta debe tene
 
 1. Abre **Servidores MCP** y pulsa **Registrar servidor**.
 2. Usa nombre `iris-mcp-demo`, URL `http://iris-mcp-transport:8080/mcp`, transporte `streamable-http`, autenticación `none`, estado `approved` y habilitado.
-3. Guarda y pulsa **Descubrir herramientas**. Abre **Ver herramientas** para revisar nombres y parámetros.
+3. Guarda y pulsa el icono de actualización (**Descubrir herramientas**). El icono de lista (**Ver herramientas**) abre el modal con búsqueda de nombres y parámetros.
 4. En **Agentes**, edita el agente y selecciona las herramientas remotas permitidas. Configura sus policies y autoriza al usuario en **Usuarios IA**.
 5. Abre el chat y prueba una consulta con `Coffee`. La auditoría del agente registra las llamadas.
 

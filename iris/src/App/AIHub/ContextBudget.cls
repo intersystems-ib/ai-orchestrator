@@ -18,7 +18,6 @@ ClassMethod ValidateCapacity(capacity, modelName As %String = "") As %Status
         if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)
         while rs.%Next() {
             set reserve = +rs.%Get("ResponseReserve")
-            if reserve = 0 set reserve = 1024
             set sc = ..ValidateValues(capacity, +rs.%Get("ContextBudget"), reserve)
             if $$$ISERR(sc) return $$$ERROR($$$GeneralError, "Model capacity conflicts with an assigned agent's context budget or response reserve")
         }
@@ -43,7 +42,6 @@ ClassMethod ValidateAgent(modelName As %String, budget, reserve) As %Status
         "SELECT MaxContextTokens FROM App_Governance.Model WHERE Name = ?", modelName)
     if 'rs.%Next() return $$$ERROR($$$GeneralError, "Model does not exist")
     set capacity = +rs.%Get("MaxContextTokens")
-    if capacity = 0 set capacity = 4096
     return ..ValidateValues(capacity, budget, reserve)
 }
 
@@ -55,8 +53,6 @@ ClassMethod Configuration(agentName As %String, Output config As %DynamicObject,
         "FROM App_Governance.Agent a JOIN App_Governance.Model m ON m.Name=a.ModelName WHERE a.Name=?", agentName)
     if 'rs.%Next() return $$$ERROR($$$GeneralError, "Agent context configuration not found")
     set capacity = +rs.%Get("MaxContextTokens"), reserve = +rs.%Get("ResponseReserve")
-    if capacity = 0 set capacity = 4096
-    if reserve = 0 set reserve = 1024
     set budget = +rs.%Get("ContextBudget")
     set sc = ..ValidateValues(capacity, budget, reserve)
     if $$$ISERR(sc) return sc

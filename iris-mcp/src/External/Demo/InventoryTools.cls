@@ -28,7 +28,7 @@ Method GetDailyPrices(
         throw ##class(%Exception.StatusException).CreateFromStatus(
             $$$ERROR($$$GeneralError, "Quotation day must be a valid date in YYYY-MM-DD format"))
     }
-    // Explicitly uses the same Spanish iFind index as App.Demo.Inventory.
+    // Explicitly uses the same English iFind index as App.Demo.Inventory.
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID, Name, Price, Currency FROM External_Demo.Price " _
         "WHERE %ID %FIND search_index(NameSearchIndex, ?, 1, 'en') AND Day = ? ORDER BY Name",

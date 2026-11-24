@@ -341,15 +341,15 @@ name: mcp-publicacion
 
 # Ejemplo: publicar herramientas por MCP
 
-**External.Demo.InventoryTools** extiende `%AI.Tool` e implementa `SearchInventory` y `GetDailyPrices(name, day)`.
+**External.MCP.Tools** extiende `%AI.ToolSet`. Su `XData Definition` selecciona los métodos:
 
 ```text
-Class External.MCP.Tools Extends External.Demo.InventoryTools
-{
-}
+<ToolSet Name="ExternalIRIS">
+  <Include Class="External.Demo.InventoryTools" Tool="SearchInventory"/>
+  <Include Class="External.Demo.InventoryTools" Tool="GetDailyPrices"/>
+</ToolSet>
 
-Class External.MCP.Service Extends %AI.MCP.Service
-{
+Class External.MCP.Service Extends %AI.MCP.Service {
 Parameter SPECIFICATION As STRING = "External.MCP.Tools";
 }
 ```
@@ -360,12 +360,11 @@ Registramos **/mcp/demo** en IRIS con esa clase de servicio y lo configuramos en
 
 <!--
 Ejemplo basado en las clases reales del servidor iris-mcp, sin adelantar el recorrido de la demostración.
-External.Demo.InventoryTools extiende %AI.Tool. External.MCP.Tools hereda sus métodos; en el proyecto añade también propiedades descriptivas, omitidas aquí para centrarse en la publicación.
+External.Demo.InventoryTools extiende %AI.Tool e implementa los métodos. External.MCP.Tools extiende %AI.ToolSet y publica sus métodos con Include dentro del XData Definition XML. La herencia por sí sola no los descubre en esta preview. El fragmento XML mostrado es el contenido del XData; la clase completa está en iris-mcp/src/External/MCP/Tools.cls.
 Las clases del bloque se guardan y compilan por separado en el namespace MCP. El SDK obtiene los contratos a partir de los métodos, sus tipos, comentarios y descripciones de parámetros.
-Este ejemplo utiliza la herencia de %AI.Tool, no el ToolSet XML mostrado anteriormente: no hay un XML adicional con la lista de métodos en esta implementación.
 SPECIFICATION enlaza el servicio con la clase que ofrece las herramientas. iris-mcp/iris.script registra /mcp/demo con Type=18, NameSpace=MCP, DispatchClass=External.MCP.Service y autenticación habilitada.
 iris-mcp/config.toml conecta iris-mcp-server con iris-mcp:1972 y declara endpoints=[{path="/mcp/demo", ...}] con credenciales obtenidas del entorno.
-La ruta interna /mcp/demo identifica el servicio IRIS; el cliente utiliza la ruta HTTP /mcp del transporte. En este despliegue hay además un proxy de compatibilidad delante del binario oficial.
+La ruta interna /mcp/demo identifica el servicio IRIS; el cliente utiliza la ruta HTTP /mcp del transporte. En este despliegue hay además un proxy de validación de la cabecera Host delante del binario oficial.
 El catálogo devuelve mcp_demo_SearchInventory y mcp_demo_GetDailyPrices, con sus esquemas de entrada. La publicación no asigna automáticamente las herramientas a los agentes: el cliente las descubre y la aplicación decide cuáles habilita.
 Fuentes: iris-mcp/src/External/Demo/InventoryTools.cls, iris-mcp/src/External/MCP/Tools.cls, iris-mcp/src/External/MCP/Service.cls, iris-mcp/iris.script e iris-mcp/config.toml.
 -->
@@ -421,13 +420,13 @@ name: demo-escenario
 flowchart LR
   U[Usuario] <--> A[Agente<br/>AI Orchestrator]
   A <--> L[Modelo LLM]
-  subgraph LOCAL[IRIS principal]
-    I[SearchInventory<br/>Existencias]
+  subgraph INVENTARIO[IRIS inventario]
+    MI[Servidor MCP] --> I[SearchInventory<br/>Existencias]
   end
-  subgraph REMOTO[IRIS externo]
+  subgraph PRECIOS[IRIS cotizaciones]
     M[Servidor MCP] --> P[GetDailyPrices<br/>Precios por fecha]
   end
-  A --> I
+  A --> MI
   A --> M
 ```
 
@@ -437,9 +436,9 @@ flowchart LR
 <DemoLink section="mcp">Mostrar las herramientas MCP</DemoLink>
 
 <!--
-Este diagrama presenta el caso concreto por primera vez. Seguir las dos rutas: inventario local y precios del IRIS externo.
+Este diagrama presenta el caso concreto por primera vez. Seguir las dos rutas MCP: inventario en iris-demo y precios en iris-mcp; ambos servidores están separados del IRIS principal.
 El agente demo-operaciones y el modelo están preparados antes de la sesión. El servidor de precios utiliza iris-mcp-server como transporte MCP.
-Comprobar previamente que el usuario puede utilizar el agente y que GetDailyPrices está asignada junto a la búsqueda local de inventario.
+Comprobar previamente que el usuario puede utilizar el agente y que GetDailyPrices está asignada junto a la búsqueda remota de inventario de iris-demo.
 Si se abre el catálogo MCP, basta con señalar GetDailyPrices y sus parámetros. No hacer la configuración desde cero.
 Elegir una fecha con precios de ejemplo. Los precios son ficticios en EUR. No presentar la demo como una fuente de cotizaciones reales.
 -->
@@ -476,7 +475,7 @@ name: demo-comprobacion
 <p class="takeaway">La respuesta del modelo se apoya en datos obtenidos mediante las funciones que hemos autorizado.</p>
 
 <!--
-Mostrar sólo las llamadas relacionadas con la pregunta de la demo. Identificar la herramienta local y la remota.
+Mostrar sólo las llamadas relacionadas con la pregunta de la demo. Identificar las herramientas de ambos servidores MCP.
 Si una herramienta no se ha ejecutado, no describir la respuesta como una composición de ambas fuentes.
 No entrar en Message Bank, RequestId, tiempos de ejecución o policies detalladas salvo que la audiencia lo pregunte.
 La auditoría requiere database-audit en el agente, preparada antes de la sesión.

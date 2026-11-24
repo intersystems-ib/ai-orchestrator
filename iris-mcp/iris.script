@@ -1,9 +1,13 @@
 zn "%SYS"
 do ##class(SYS.Container).QuiesceForBundling()
 zn "MCP"
-set sc = $SYSTEM.OBJ.LoadDir("/opt/irisapp/src/External", "ck", , 1)
-if '$SYSTEM.Status.IsOK(sc) do $SYSTEM.OBJ.DisplayError(sc)
-if '$SYSTEM.Status.IsOK(sc) set $ECODE=",U-BUILDFAILED,"
+// Compile providers before the XML ToolSet resolves its included methods.
+set sc = $SYSTEM.OBJ.LoadDir("/opt/irisapp/src/External/Demo", "ck", , 1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
+set sc = $SYSTEM.OBJ.LoadDir("/opt/irisapp/src/External/MCP", "ck", , 1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
+set published=##class(External.MCP.Tools).%New().%Discover()
+if published.tools.%Size()'=2 { write "Unexpected MCP tool count",! set $ECODE=",U-BUILDFAILED," }
 set sc = ##class(External.Demo.Bootstrap).Seed()
 if '$SYSTEM.Status.IsOK(sc) do $SYSTEM.OBJ.DisplayError(sc)
 if '$SYSTEM.Status.IsOK(sc) set $ECODE=",U-BUILDFAILED,"

@@ -6,8 +6,6 @@ Class App.AIHub.Bootstrap
 
 ClassMethod Seed() As %Status
 {
-    set sc = ##class(App.AIHub.Upgrade.ContextBudgets).Run()
-    if $$$ISERR(sc) return sc
     set sc = ##class(%ConfigStore.DescriptorManager).RebuildRegistry()
     if $$$ISERR(sc) return sc
     set sc = ##class(App.AIHub.MCP.Connection).ConfigureTLS()
@@ -54,9 +52,6 @@ ClassMethod Seed() As %Status
         set sc = ##class(App.Governance.Policy).Create(payload, .ignored)
         if $$$ISERR(sc) return sc
     }
-
-    set sc = ##class(App.AIHub.Upgrade.AgentAuditPolicies).Run()
-    if $$$ISERR(sc) return sc
 
     set sc = ##class(App.Governance.Tool).Synchronize(.ignored)
     if $$$ISERR(sc) return sc

@@ -90,7 +90,7 @@ chat continuity. The optional `LiveConsole` component can embed the console.
 ## Optional BPL extension
 
 BPL is outside the introductory deck. To prepare a separate technical demo:
-apply `iris/upgrades/bpl-agent.script` if needed, then manually import
+manually import
 `demo/snippets/AgentDemoProcess.cls` into `APP`. This declares a process but does
 not start or modify a production. In a demonstration production, add an
 `App.Interop.AgentOperation` named **Demo Agent Operation**, select
@@ -136,3 +136,9 @@ References: [Slidev](https://sli.dev/guide/),
 [Vite customization](https://sli.dev/custom/config-vite),
 [directory structure](https://sli.dev/custom/directory-structure),
 [hosting](https://sli.dev/guide/hosting).
+
+The selected model must declare the endpoint's actual `maxContextTokens` (Llama
+16384 and Qwen 4096 with the default Compose settings). Configure the agent's
+input budget and response reserve accordingly. The chat has separate Chat and
+Conversation statistics tabs, and retains the draft when switching. MCP actions
+are list/refresh icons with tooltips; view tools in their modal.

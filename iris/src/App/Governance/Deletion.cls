@@ -32,7 +32,6 @@ ClassMethod Execute(kind As %String, name As %String, Output result As %DynamicO
         }
         if kind="mcp-server" {
             do ..RequireUnused("SELECT DISTINCT a.AgentName AS Name FROM App_Governance.AgentTool a JOIN App_Governance.Tool t ON t.Name=a.ToolName WHERE t.MCPServerName=?",name,"MCP server tools are assigned to agents")
-            do ..SQLDelete("DELETE FROM App_Governance.ToolPolicy WHERE ToolName IN (SELECT Name FROM App_Governance.Tool WHERE MCPServerName=?)",name)
             do ..SQLDelete("DELETE FROM App_Governance.Tool WHERE MCPServerName=?",name)
         }
         set httpStatus=400

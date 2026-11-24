@@ -42,7 +42,7 @@ ClassMethod Synchronize(Output result As %DynamicObject) As %Status
         set className = rs.%Get("Name")
         // System classes are mapped into every namespace but are not owned by
         // the application. App.AIHub.Tool contains runtime adapters, not
-        // business tools, and can include compiled remnants after an upgrade.
+        // business tools and must not be published as local application tools.
         if $extract(className) = "%" continue
         if $extract(className, 1, 15) = "App.AIHub.Tool." continue
         if '##class(App.Governance.ClassUtil).IsSubclass(className, "%AI.Tool") continue
@@ -189,9 +189,6 @@ ClassMethod ListJSON(serverName As %String = "") As %DynamicArray
 ClassMethod Update(name As %String, payload As %DynamicObject,
     Output result As %DynamicObject) As %Status
 {
-    if payload.%IsDefined("auditPolicies") {
-        return $$$ERROR($$$GeneralError, "Audit policies must be configured on the agent, not on the tool")
-    }
     set rs = ##class(%SQL.Statement).%ExecDirect(,
         "SELECT ID FROM App_Governance.Tool WHERE Name = ?", name)
     if rs.%SQLCODE < 0 return $$$ERROR($$$SQLError, rs.%SQLCODE, rs.%Message)

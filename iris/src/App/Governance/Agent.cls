@@ -10,9 +10,6 @@ Property ModelName As %String(MAXLEN = 120) [ Required ];
 Property SystemPrompt As %String(MAXLEN = "");
 Property Temperature As %Numeric(SCALE = 2) [ InitialExpression = 0.2 ];
 Property MaxIterations As %Integer(MINVAL = 1, MAXVAL = 100) [ InitialExpression = 10 ];
-/// Retained only to preserve the storage layout of upgrades from the former
-/// ToolSet-based implementation. It is never read, written, or exposed.
-Property ToolSets As %String(MAXLEN = "") [ Internal ];
 Property Policies As %String(MAXLEN = "");
 Property Status As %String(VALUELIST = ",draft,approved,suspended,retired") [ InitialExpression = "draft" ];
 Property Enabled As %Boolean [ InitialExpression = 1 ];

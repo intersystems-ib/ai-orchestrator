@@ -24,7 +24,7 @@ Los puertos del equipo se publican en loopback. Se configuran con
 en IRIS. En desarrollo se usa `CSPSystem/SYS`; cada despliegue debe provisionar
 su propia cuenta y permisos. El endpoint `/mcp/business` exige autenticación
 Password. El binario oficial `iris-mcp-server` utiliza esas credenciales; el
-transporte reutiliza el proxy de compatibilidad de `iris-mcp/serve.py`.
+transporte reutiliza el proxy de validación de la cabecera Host de `iris-mcp/serve.py`.
 
 `Demo.MCP.Tools` extiende `%AI.ToolSet` e incluye explícitamente los cuatro métodos en su `Definition` XML;
 `Demo.MCP.Service` la referencia mediante `SPECIFICATION`. Se publican:
@@ -46,10 +46,6 @@ catálogo y asigna sus herramientas a los agentes. Las policies de autorización
 y auditoría permanecen en cada agente del Orchestrator. Publicar el alta de stock
 no la asigna automáticamente. El bootstrap principal no carga datos de negocio
 ni registra automáticamente este servidor de ejemplo.
-
-En instalaciones existentes, sigue la [guía de migración](migration/README_es.md).
-Conserva IDs, referencias, stock, identidades de tools, estados y asignaciones.
-Solo traduce los valores conocidos de los ejemplos; mantiene nombres personalizados.
 
 ```powershell
 ./iris-demo/tests/smoke.ps1
@@ -90,6 +86,8 @@ Parameter SPECIFICATION As STRING = "Demo.MCP.Tools";
 }
 ```
 
+Compila las clases de herramientas de negocio antes que el ToolSet XML: su generador resuelve los métodos incluidos durante la compilación. La construcción de la imagen aplica este orden y comprueba el número de herramientas publicadas.
+
 Después de compilar, registra la aplicación en `%SYS` (ya lo hace `iris.script`):
 
 ```objectscript
@@ -98,6 +96,7 @@ set properties("NameSpace")="DEMO"
 set properties("DispatchClass")="Demo.MCP.Service"
 set properties("Enabled")=1
 set properties("AutheEnabled")=32
+set properties("MatchRoles")=":%All"
 set sc=##class(Security.Applications).Create("/mcp/business",.properties)
 ```
 
@@ -113,6 +112,7 @@ allowed_hosts = ["iris-demo-transport:8080", "localhost", "127.0.0.1"]
 [[iris]]
 name = "business"
 server = { host = "iris-demo", port = 1972, username = "@{env:IRIS_DEMO_USERNAME}", password = "@{env:IRIS_DEMO_PASSWORD}" }
+pool = { min = 1, max = 3 }
 endpoints = [{ path = "/mcp/business", username = "@{env:IRIS_DEMO_USERNAME}", password = "@{env:IRIS_DEMO_PASSWORD}" }]
 ```
 
@@ -122,7 +122,7 @@ La ruta interna de IRIS y la ruta HTTP `/mcp` son distintas. La cuenta debe tene
 
 1. Abre **Servidores MCP** y pulsa **Registrar servidor**.
 2. Usa nombre `iris-demo`, URL `http://iris-demo-transport:8080/mcp`, transporte `streamable-http`, autenticación `none`, estado `approved` y habilitado.
-3. Guarda y pulsa **Descubrir herramientas**. Abre **Ver herramientas** para revisar nombres y parámetros.
+3. Guarda y pulsa el icono de actualización (**Descubrir herramientas**). El icono de lista (**Ver herramientas**) abre el modal con búsqueda de nombres y parámetros.
 4. En **Agentes**, edita el agente y selecciona las herramientas remotas permitidas. Configura sus policies y autoriza al usuario en **Usuarios IA**.
 5. Abre el chat y prueba una consulta con `Coffee`. La auditoría del agente registra las llamadas.
 

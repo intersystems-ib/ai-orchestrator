@@ -10,7 +10,6 @@ Property Username As %String(MAXLEN = 128) [ Required ];
 Property SessionId As %Integer [ Required ];
 Property CreatedAt As %TimeStamp;
 Property UpdatedAt As %TimeStamp;
-/// Append new fields to preserve the storage positions of existing conversations.
 /// Native SDK Export() snapshot, including context and cumulative statistics.
 Property SessionState As %String(MAXLEN = "");
 

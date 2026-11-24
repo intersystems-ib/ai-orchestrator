@@ -9,7 +9,7 @@ contenedor, sin credenciales ni llamadas a proveedores externos.
 
 ```powershell
 docker compose build iris
-docker run -d --name ai-orchestrator-bpl-test ai-orchestrator-iris --check-caps false --ISCAgent false
+docker run -d --name ai-orchestrator-bpl-test -e ISC_CPF_MERGE_FILE= ai-orchestrator-iris --check-caps false --ISCAgent false
 docker cp iris-demo/src/App/Demo ai-orchestrator-bpl-test:/tmp/test-demo
 docker cp iris/tests/bpl-agent ai-orchestrator-bpl-test:/tmp/bpl-agent-tests
 docker exec -d ai-orchestrator-bpl-test python3 /tmp/bpl-agent-tests/mock-llm.py

@@ -1,55 +1,32 @@
 zn "APP"
-set failures = 0
-set prefix = "audit-test-" _ $translate($SYSTEM.Util.CreateGUID(), "{}", "")
+set failures=0,prefix="audit-test-"_$translate($SYSTEM.Util.CreateGUID(),"{}","")
 tstart
-set first = ##class(App.Governance.Agent).%New()
-set first.Name = prefix _ "-first", first.DisplayName = "Existing audit", first.ModelName = "test-model", first.Policies = "database-audit"
-set sc = first.%Save()
-if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL first fixture",! }
-set second = ##class(App.Governance.Agent).%New()
-set second.Name = prefix _ "-second", second.DisplayName = "Migrated audit", second.ModelName = "test-model"
-set sc = second.%Save()
-if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL second fixture",! }
-for agentName = first.Name, second.Name { set assignment=##class(App.Governance.AgentTool).%New() set assignment.AgentName=agentName, assignment.ToolName=prefix set sc=assignment.%Save() if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL tool assignment",! } }
-set legacy=##class(App.Governance.ToolPolicy).%New()
-set legacy.ToolName=prefix, legacy.PolicyName="database-audit"
-set sc=legacy.%Save()
-if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL legacy fixture",! }
-set sc=##class(App.AIHub.Upgrade.AgentAuditPolicies).Run(.changed)
-if '$SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL migration: ",$SYSTEM.Status.GetErrorText(sc),! }
-set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT Policies FROM App_Governance.Agent WHERE Name = ?",first.Name)
-do rs.%Next()
-if rs.%Get("Policies") '= "database-audit" { set failures=failures+1 write "FAIL duplicate migration: ",rs.%Get("Policies")," SQL=",rs.%SQLCODE," Agent=",first.Name,! }
-set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT Policies FROM App_Governance.Agent WHERE Name = ?",second.Name)
-do rs.%Next()
-if rs.%Get("Policies") '= "database-audit" { set failures=failures+1 write "FAIL missing migrated policy: ",rs.%Get("Policies")," SQL=",rs.%SQLCODE," Agent=",second.Name,! }
-set sc=##class(App.AIHub.Upgrade.AgentAuditPolicies).Run(.changed)
-if changed '= 0 { set failures=failures+1 write "FAIL migration not idempotent",! }
-set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.ToolPolicy")
-do rs.%Next()
-if rs.%Get("Records") '= 0 { set failures=failures+1 write "FAIL legacy assignments not cleared",! }
-do ##class(App.AIHub.RuntimeContext).SetAgent(first.Name)
+set first=##class(App.Governance.Agent).%New()
+set first.Name=prefix_"-first",first.DisplayName="Audited agent",first.ModelName="fixture-model",first.Policies="database-audit,DATABASE-AUDIT"
+set sc=first.%Save()
+if '$SYSTEM.Status.IsOK(sc) {set failures=failures+1 write "FAIL audited agent fixture",!}
+set second=##class(App.Governance.Agent).%New()
+set second.Name=prefix_"-second",second.DisplayName="Agent without audit policy",second.ModelName="fixture-model"
+set sc=second.%Save()
+if '$SYSTEM.Status.IsOK(sc) {set failures=failures+1 write "FAIL second agent fixture",!}
 set audit=##class(App.AIHub.Policy.DynamicAudit).%New()
-set call={"name":(prefix), "arguments":{}}, result={"ok":true}
-set first.Policies="database-audit,DATABASE-AUDIT"
-set sc=first.%Save()
+set call={"name":(prefix),"arguments":{}},result={"ok":true}
+do ##class(App.AIHub.RuntimeContext).SetAgent(first.Name)
 set sc=audit.%LogExecution(call,{},result,15,1)
-set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName = ?",first.Name)
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName=?",first.Name)
 do rs.%Next()
-if rs.%Get("Records") '= 1 { set failures=failures+1 write "FAIL agent audit or duplicate event",! }
-set first.Policies=""
-set sc=first.%Save()
-set legacy=##class(App.Governance.ToolPolicy).%New()
-set legacy.ToolName=prefix, legacy.PolicyName="database-audit"
-set sc=legacy.%Save()
+if rs.%Get("Records")'=1 {set failures=failures+1 write "FAIL agent audit or duplicate event",!}
+do ##class(App.AIHub.RuntimeContext).SetAgent(second.Name)
 set sc=audit.%LogExecution(call,{},result,15,1)
-set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName = ?",first.Name)
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName=?",second.Name)
 do rs.%Next()
-if rs.%Get("Records") '= 1 { set failures=failures+1 write "FAIL legacy tool policy still applied",! }
-set sc=##class(App.Governance.Tool).Update(prefix,{"auditPolicies":[]},.ignored)
-if $SYSTEM.Status.IsOK(sc) { set failures=failures+1 write "FAIL obsolete tool audit payload accepted",! }
-set tools=##class(App.Governance.Tool).ListJSON()
-for i=0:1:(tools.%Size()-1) { if tools.%Get(i).%IsDefined("auditPolicies") { set failures=failures+1 write "FAIL obsolete tool audit response",! } }
+if rs.%Get("Records")'=0 {set failures=failures+1 write "FAIL unassigned audit policy applied",!}
+set second.Policies="database-audit"
+set sc=second.%Save()
+set sc=audit.%LogExecution(call,{},result,15,1)
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS Records FROM App_Governance.AuditEvent WHERE AgentName=?",second.Name)
+do rs.%Next()
+if rs.%Get("Records")'=1 {set failures=failures+1 write "FAIL dynamic agent policy assignment",!}
 trollback
 do ##class(App.AIHub.RuntimeContext).Clear()
 write "AGENT_AUDIT_FAILURES=",failures,!

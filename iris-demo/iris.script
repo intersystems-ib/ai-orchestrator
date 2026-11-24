@@ -1,8 +1,13 @@
 zn "%SYS"
 do ##class(SYS.Container).QuiesceForBundling()
 zn "DEMO"
-set sc=$SYSTEM.OBJ.LoadDir("/opt/irisapp/src", "ck", , 1)
+// Compile providers before the XML ToolSet resolves its included methods.
+set sc=$SYSTEM.OBJ.LoadDir("/opt/irisapp/src/App", "ck", , 1)
 if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
+set sc=$SYSTEM.OBJ.LoadDir("/opt/irisapp/src/Demo", "ck", , 1)
+if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
+set published=##class(Demo.MCP.Tools).%New().%Discover()
+if published.tools.%Size()'=4 { write "Unexpected MCP tool count",! set $ECODE=",U-BUILDFAILED," }
 set sc=##class(App.Demo.Inventory).SeedDemo(.created)
 if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) set $ECODE=",U-BUILDFAILED," }
 set sc=##class(App.Demo.Inventory).%BuildIndices($listbuild("NameSearchIndex"))

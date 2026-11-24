@@ -9,7 +9,7 @@ permisos de prueba.
 
 ```powershell
 docker compose build iris
-docker run -d --name ai-orchestrator-delegation-test ai-orchestrator-iris --check-caps false --ISCAgent false
+docker run -d --name ai-orchestrator-delegation-test -e ISC_CPF_MERGE_FILE= ai-orchestrator-iris --check-caps false --ISCAgent false
 # Esperar a que la instancia termine de arrancar.
 docker cp iris-demo/src/App/Demo ai-orchestrator-delegation-test:/tmp/test-demo
 docker cp iris/tests/delegation ai-orchestrator-delegation-test:/tmp/delegation-tests

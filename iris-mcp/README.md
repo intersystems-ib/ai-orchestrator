@@ -52,7 +52,6 @@ Example: `{"name":"Coffee","day":"2026-11-23"}`. Choose a date present in the da
 The seed creates seven days of fictional EUR prices for 20 English product names,
 ending on the build/seed date. It preserves existing prices and does not refresh
 automatically. Rerun `External.Demo.Bootstrap.Seed()` to add missing recent dates.
-For older Spanish sample data, use [the migration guide](../iris-demo/migration/README.md).
 
 ## Using the catalog
 
@@ -86,7 +85,7 @@ additional matching products and seed idempotence, rolling back test records.
 Core tests `mcp-registry.script`, `mcp-protocol.py`, `mcp-tools.script` and
 `mcp-prices.script` cover registry validation, JSON/SSE/pagination/Unicode/auth,
 governed execution and auditing. They roll back temporary application records;
-`mcp-prices.script` additionally requires an available LLM. See the scripts before
+`mcp-prices.script` invokes the remote tool through ToolManager without LLM inference; both execution scripts expect the registered server `iris-mcp-demo` and seeded quotation dates. See the scripts before
 running them on a persistent deployment.
 
 ## Configuring publication in IRIS
@@ -117,6 +116,8 @@ Parameter SPECIFICATION As STRING = "External.MCP.Tools";
 }
 ```
 
+Compile the business tool classes before the XML ToolSet: its generator resolves included methods at compile time. The image build enforces this order and checks the published tool count.
+
 After compilation, register the application in `%SYS` (`iris.script` already does this):
 
 ```objectscript
@@ -125,6 +126,7 @@ set properties("NameSpace")="MCP"
 set properties("DispatchClass")="External.MCP.Service"
 set properties("Enabled")=1
 set properties("AutheEnabled")=32
+set properties("MatchRoles")=":%All"
 set sc=##class(Security.Applications).Create("/mcp/demo",.properties)
 ```
 
@@ -140,6 +142,7 @@ allowed_hosts = ["iris-mcp-transport:8080", "localhost", "127.0.0.1"]
 [[iris]]
 name = "external"
 server = { host = "iris-mcp", port = 1972, username = "@{env:IRIS_MCP_USERNAME}", password = "@{env:IRIS_MCP_PASSWORD}" }
+pool = { min = 1, max = 3 }
 endpoints = [{ path = "/mcp/demo", username = "@{env:IRIS_MCP_USERNAME}", password = "@{env:IRIS_MCP_PASSWORD}" }]
 ```
 
@@ -149,7 +152,7 @@ The internal IRIS application path differs from HTTP `/mcp`. The account must ha
 
 1. Open **MCP servers** ("Servidores MCP") and choose **Register server**.
 2. Set name `iris-mcp-demo`, URL `http://iris-mcp-transport:8080/mcp`, transport `streamable-http`, authentication `none`, status `approved`, and enabled.
-3. Save and choose **Discover tools**. Use **View tools** to inspect names and input schemas.
+3. Save and choose the refresh icon (**Discover tools** tooltip). The list icon (**View tools**) opens the searchable tools modal.
 4. Edit the agent, assign the permitted remote tools, select its policies and authorize the user in **AI users**.
 5. Open chat and query `Coffee`. Agent auditing records tool calls.
 

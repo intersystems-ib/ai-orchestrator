@@ -1,7 +1,0 @@
-zn "APP"
-set sc=$SYSTEM.OBJ.Load("/tmp/demo-migration/ExternalizeDemo.cls","ck")
-if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
-set sc=##class(App.AIHub.Upgrade.ExternalizeDemo).Run()
-if '$SYSTEM.Status.IsOK(sc) { do $SYSTEM.OBJ.DisplayError(sc) halt }
-write "DEMO_CATALOG_OK",!
-halt

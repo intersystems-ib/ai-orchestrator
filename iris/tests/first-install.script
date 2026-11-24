@@ -1,0 +1,19 @@
+zn "APP"
+set failures=0
+for table="Model","Agent","Tool","MCPServer","ChatConversation","ChatMessage" {  set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS N FROM App_Governance."_table)  if rs.%SQLCODE<0 {set failures=failures+1 write "FAIL table ",table,": ",rs.%Message,!} else {do rs.%Next() if rs.%Get("N")'=0 {set failures=failures+1 write "FAIL nonempty initial registry: ",table,!}} }
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS N FROM App_Governance.Policy WHERE Name IN ('iris-user-access','database-audit') AND Status='approved' AND Enabled=1")
+do rs.%Next()
+if rs.%Get("N")'=2 {set failures=failures+1 write "FAIL initial policies",!}
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS N FROM App_Governance.AIUser WHERE Username='CSPSystem' AND Enabled=1")
+do rs.%Next()
+if rs.%Get("N")'=1 {set failures=failures+1 write "FAIL initial administrator",!}
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS N FROM %Dictionary.CompiledClass WHERE Name %STARTSWITH 'App.Demo.' OR Name %STARTSWITH 'App.AIHub.Upgrade.' OR Name='App.Governance.ToolPolicy'")
+do rs.%Next()
+if rs.%Get("N")'=0 {set failures=failures+1 write "FAIL unexpected core classes",!}
+set rs=##class(%SQL.Statement).%ExecDirect(,"SELECT COUNT(*) AS N FROM %Dictionary.CompiledProperty WHERE parent='App.Governance.Agent' AND Name='ToolSets'")
+do rs.%Next()
+if rs.%Get("N")'=0 {set failures=failures+1 write "FAIL unexpected agent property",!}
+set sc=##class(App.AIHub.Bootstrap).Seed()
+if '$SYSTEM.Status.IsOK(sc) {set failures=failures+1 do $SYSTEM.OBJ.DisplayError(sc)}
+write "FIRST_INSTALL_FAILURES=",failures,!
+halt

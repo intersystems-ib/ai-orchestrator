@@ -1,5 +1,9 @@
 # AI Orchestrator
 
+**English** | [Español](README_es.md)
+
+Govern and compose agents with the [InterSystems AI Hub ObjectScript SDK](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk), a React console and IRIS interoperability. Business examples run on separate MCP servers.
+
 ## Isolated business examples
 
 The main IRIS owns AI Orchestrator, its catalog, agents, policies and sessions.
@@ -16,11 +20,8 @@ Example data, comments and tool descriptions use English. Both example servers
 use English iFind processing. The core image contains no `App.Demo` classes and
 seeds no business data.
 
-For a fresh deployment, register `iris-demo` in **MCP servers**, discover its
-tools and assign them to agents. Existing deployments must follow the
-[data and tool assignment migration](iris-demo/migration/README.md). Rebuilding
-an image does not remove old classes from an existing persistent namespace.
-
+For the first installation, register each example server in **MCP servers**,
+discover its tools and assign the permitted tools to agents.
 
 Complete MCP configuration and registration examples: [inventory and shipments](iris-demo/README.md#configuring-publication-in-iris) and [daily prices](iris-mcp/README.md#configuring-publication-in-iris). They cover service classes, IRIS endpoints, `config.toml`, console registration and API requests.
 
@@ -47,23 +48,8 @@ levels, sixteen delegated calls per request and a 120-second wait per invocation
 Specialists execute in independent IRIS jobs without requiring BPL or an active
 interoperability production.
 
-For an existing durable namespace, rebuild/recreate `iris` and `frontend`, then load
-the updated classes (existing definitions and data are preserved):
-
-```powershell
-docker compose up -d --build iris frontend
-Get-Content -Raw iris/upgrades/agent-delegation.script | docker compose exec -T iris iris session IRIS
-```
-
 See `iris/tests/delegation/README.md` for the isolated integration test with a local
 mock provider.
-
-**English** | [Español](README_es.md)
-
-An MVP for governing and composing agents on top of the
-[InterSystems AI Hub ObjectScript SDK](https://docs.intersystems.com/components/csp/docbook/DocBook.UI.Page.cls?KEY=BAIHUB_sdk).
-The Docker architecture includes IRIS, Web Gateway, a React console served by
-Nginx, and two optional local llama.cpp servers.
 
 ## Introductory Slidev presentation and demonstration
 
@@ -91,7 +77,7 @@ such as `/#agents` and `/#mcp`.
 - Discovery, search and governed execution of tools from external MCP servers.
 - Multi-turn chat for testing any approved agent, with sessions and messages
   persisted in IRIS.
-- Mandatory routing of every inference through an interoperability production,
+- Routing of console/API inference through an interoperability production,
   retaining its request and response in the Message Bank.
 - IRIS user allow-list and mandatory `%AI.Policy.Authorization` policy for
   starting chats and discovering or executing tools.
@@ -109,14 +95,14 @@ such as `/#agents` and `/#mcp`.
 
 | Area | Features |
 |---|---|
-| Models | Commercial and local model catalog, secure connection settings, approval, and activation |
-| Agents | Model selection, system prompt, temperature, maximum iterations, tools, and policies |
+| Models | Provider connection, maximum context capacity, lifecycle and dependency-aware deletion |
+| Agents | Model, instructions, iterations, tools, delegated agents, policies, input budget and response reserve |
 | Tools | Discovery of local and external MCP tools with per-agent assignment |
 | Policies | Mandatory authorization, discovery rules, and audit policies configured exclusively on each agent |
 | Identity | IRIS JWT authentication, user allow-list, and user-to-agent authorization |
-| Chat | Persistent conversations and messages, agent selection, and real AI Hub invocation |
+| Chat | Separate Chat and Conversation statistics tabs; persistent messages, context usage and summary history |
 | Audit | Persistent agent, tool, argument, result, duration, correlation ID, and error records |
-| Demo | Persistent inventory, shipments, and product lines; iFind search, cumulative stock entry, and queries through four tools |
+| Examples | Separate MCP servers: inventory/shipments in `iris-demo`; daily quotations in `iris-mcp` |
 
 All functional configuration is resolved inside IRIS. Docker Compose only
 defines executable infrastructure—IRIS, Web Gateway, the frontend, and local
@@ -151,9 +137,9 @@ timestamp. The response retains status, error, duration, and result. The same
 `RequestId` is propagated to functional chat messages and tool audit events,
 which correlates the HTTP, interoperability, agent, and tool layers.
 
-For REST calls, identity is not obtained from `$username`. The JWT subject
-validated by the API travels explicitly in the message and is installed in the
-job-local context before policies are evaluated. The production is configured
+For REST calls, the API forwards the validated JWT subject explicitly in the
+message. Production jobs use that forwarded identity through the job-local
+context rather than substituting their own IRIS service account. The production is configured
 for automatic startup during bootstrap.
 
 ### Agents as BPL Business Operations
@@ -190,12 +176,6 @@ Failures return an error `%Status` for BPL fault handling. Conversations, polici
 and tool audits use the shared governed executor. The production trace retains
 the original string request and response.
 
-After rebuilding and starting `iris`, update an existing durable namespace with:
-
-```powershell
-Get-Content -Raw iris/upgrades/bpl-agent.script | docker compose exec -T iris iris session IRIS
-```
-
 `iris/tests/bpl-agent/` contains a deterministic local mock LLM and a real BPL
 integration test. Run it only in a disposable instance: it creates test registry
 records and changes the active production.
@@ -207,7 +187,8 @@ records and changes the active production.
 - logical identity and display name;
 - AI Hub provider;
 - commercial model identifier or local alias;
-- approval and activation state.
+- approval and activation state;
+- declared maximum context capacity (`maxContextTokens`).
 
 Connection fields such as `apiKey`, `baseUrl`, and `region` are stored in
 `%ConfigStore.Configuration`, not as properties or columns of
@@ -218,8 +199,8 @@ manage.
 
 The API and form continue to expose the same typed fields. `Create`, `Update`,
 and `ListJSON` on `App.Governance.Model` transparently write and read Config
-Store. Agents only add their behavior—prompt, temperature, iterations, tools,
-and policies—to the selected governed model.
+Store. Agents add instructions, temperature, iterations, tools, delegates, policies,
+input context budget and response reserve to the selected governed model.
 
 Secret material remains in Secure Wallet. Config Store contains
 `secret://...` references, never plaintext API keys or tokens. When an agent is
@@ -257,6 +238,7 @@ Register the model from the console or with `POST /api/app/models`:
   "displayName": "OpenAI production",
   "provider": "openai",
   "modelId": "model-enabled-for-the-account",
+  "maxContextTokens": 4096,
   "apiKey": "secret://openai-production-api-key",
   "baseUrl": "https://api.openai.com/v1",
   "orgId": "optional-organization",
@@ -273,6 +255,7 @@ Register the model from the console or with `POST /api/app/models`:
   "displayName": "Anthropic production",
   "provider": "anthropic",
   "modelId": "model-enabled-for-the-account",
+  "maxContextTokens": 4096,
   "apiKey": "secret://anthropic-production-api-key",
   "baseUrl": "https://api.anthropic.com",
   "version": "provider-supported-version",
@@ -292,7 +275,10 @@ inside the Docker network. Register each model with its own configuration:
   "provider": "nim",
   "modelId": "llama-3.1-8b-instruct",
   "baseUrl": "http://llama:8000/v1",
-  "apiKey": "not-needed"
+  "maxContextTokens": 16384,
+  "apiKey": "not-needed",
+  "status": "approved",
+  "enabled": true
 }
 ```
 
@@ -302,7 +288,10 @@ inside the Docker network. Register each model with its own configuration:
   "provider": "nim",
   "modelId": "qwen3.5-9b",
   "baseUrl": "http://qwen:8000/v1",
-  "apiKey": "not-needed"
+  "maxContextTokens": 4096,
+  "apiKey": "not-needed",
+  "status": "approved",
+  "enabled": true
 }
 ```
 
@@ -311,6 +300,11 @@ and `8001` expose Llama and Qwen respectively outside the Docker network.
 
 These records are namespace data and are not embedded in the image or
 bootstrap. They must be registered again from the platform in a new database.
+
+The capacities above match the default `.env.example`. If the server context
+changes, update `maxContextTokens` to the actual endpoint capacity; editing model
+metadata does not resize the server. Optional server settings and required files
+are described in [models/README.md](models/README.md).
 
 ### Runtime resolution
 
@@ -381,7 +375,7 @@ a product from its name, unique SKU or reference, and initial quantity.
 
 `Inventory.Name` has a full-text `NameSearchIndex` defined as an
 `%iFind.Index.Basic` index with English language processing, lowercase
-normalization, and stemming. Bootstrap builds it after seeding demo data.
+normalization (`INDEXOPTION=1`, `LANGUAGE="en"`, `LOWER=1`). Bootstrap builds it after seeding demo data.
 
 ```objectscript
 Class App.Demo.InventoryTools Extends %AI.Tool
@@ -422,7 +416,9 @@ shipped quantity, and product total.
   `endDate` only applies `>= startDate`; when both are empty all shipments are
   returned. Dates use `YYYY-MM-DD`.
 
-`POST /api/app/tools/sync` inspects compiled classes again. New methods are
+`POST /api/app/tools/sync` inspects compiled classes in the current core namespace
+only. It does not discover the examples in `iris-demo` or `iris-mcp`; use each
+registered server's `/mcp-servers/:serverName/tools/sync` route for those tools. New methods are
 added as approved and enabled, while removed methods are marked `retired`.
 Existing lifecycle states and dynamic assignments are preserved.
 
@@ -438,15 +434,20 @@ execution still belong to the real `%AI.Tool` class.
 | `audit` | `%AI.Policy.Audit` | `SetAuditPolicy()` |
 | `discovery` | `%AI.Policy.Discovery` | `SetDiscoveryPolicy()` |
 
-After metadata is registered in `App.Governance.Model` and connection details
-in Config Store, materialize the agent by logical name:
+After registering a model, agent and user authorization, use the governed
+application entry point so policy checks, session persistence and context budgets
+are applied together:
 
 ```objectscript
-set sc = ##class(App.AIHub.AgentFactory).Create("agent-name", .agent)
-set session = agent.CreateSession()
-set response = agent.Chat(session, "Find products whose name contains coffee")
-write response.Content
+set sc = ##class(App.Interop.Gateway).Send("agent-name",
+    "Find products whose name contains coffee", "", $username, "example", .result, .httpStatus)
+if $SYSTEM.Status.IsOK(sc) write result.content
 ```
+
+The caller's IRIS user must be authorized for that agent and the application
+production must be running. Creating a `%AI.Agent` directly is a lower-level SDK
+operation; it does not apply the chat facade's persistence and context-budget
+preparation automatically.
 
 The factory resolves each agent's tool assignments and policies from IRIS.
 `App.AIHub.Policy.DynamicAudit` composes the approved, enabled audit policies
@@ -454,19 +455,16 @@ selected on the agent and applies them to all its tool executions. The
 `database-audit` policy persists events in `App.Governance.AuditEvent`.
 Tools have no independent audit configuration.
 
-On upgrade, legacy tool audit assignments are moved to the agents using those
-tools, without duplicating existing agent policies. The legacy assignments are
-then cleared; audit history is preserved. Migrated policies cover all tools of
-the receiving agent and can subsequently be edited on that agent.
-
 ## Chat and user authorization
 
 The **Agent chat** screen can invoke any approved agent. The first call creates
 a `%AI.Agent.Session`; subsequent calls reuse it to preserve context. IRIS
 stores the conversation, its owning user, and its transcript.
 
-The conversation identifier now includes native `%AI.Agent.Session.GetStats()`
-statistics, refreshed after each answer: interactions, input/output tokens, tool
+The screen has **Chat** and **Conversation statistics** tabs. Switching tabs
+preserves the conversation and unsent draft. The statistics tab shows the
+conversation identifier and native `%AI.Agent.Session.GetStats()` values,
+refreshed after each answer: interactions, input/output tokens, tool
 calls, LLM time, context tokens and context usage. Throughput uses the SDK formula:
 input plus output tokens divided by LLM time. Reasoning, cache and tool duration
 are shown when active. Values accumulate within the current session and exclude
@@ -474,15 +472,7 @@ delegated agents' sessions. Missing values display as “—”; unavailable tel
 does not turn a successful chat answer into an error.
 The conversation also saves `session.Export()` and restores it with
 `session.Import()` on continuation, preserving explicit context and statistics restoration across
-requests and SDK upgrades. Older conversations
-begin saving this snapshot with their next answer; statistics already lost by
-the SDK cannot be reconstructed.
-
-After rebuilding the IRIS image, update an existing persistent namespace with:
-
-```powershell
-Get-Content -Raw iris/upgrades/chat-statistics.script | docker compose exec -T iris iris session IRIS
-```
+requests. Each conversation saves its native session state after every successful answer.
 
 `App.AIHub.Policy.UserAccess` extends `%AI.Policy.Authorization`. IRIS validates
 the Bearer JWT and establishes the authenticated subject; the policy checks it
@@ -500,34 +490,41 @@ the platform and stored in IRIS.
 
 | Method | Route | Purpose |
 |---|---|---|
-| `GET` | `/api/app/health` | IRIS AI Hub platform health |
-| `POST` | `/api/app/login` | Obtain access and refresh JWTs from IRIS credentials |
-| `POST` | `/api/app/refresh` | Refresh the token pair |
-| `POST` | `/api/app/logout` | Invalidate the JWT session |
-| `GET/POST` | `/api/app/ai-users` | Authorized user allow-list |
-| `PUT` | `/api/app/ai-users/:username/agents` | Agents allowed for a user |
-| `GET` | `/api/app/my-agents` | Agents allowed for the JWT subject |
-| `POST` | `/api/app/chat` | Send a message and continue a conversation |
-| `GET` | `/api/app/providers` | Supported providers |
-| `GET/POST` | `/api/app/models` | Model catalog |
-| `PUT` | `/api/app/models/:modelName` | Update model configuration and lifecycle |
-| `GET` | `/api/app/tools` | Discovered `%AI.Tool` methods |
-| `PUT` | `/api/app/tools/:toolName` | Update tool governance and metadata |
-| `POST` | `/api/app/tools/sync` | Synchronize the namespace catalog |
-| `GET/POST` | `/api/app/policies` | Registered policies by type |
-| `GET/POST` | `/api/app/agents` | Agent definitions |
-| `PUT` | `/api/app/agents/:agentName` | Update an agent's model, parameters, tools, and policies |
-| `GET/PUT` | `/api/app/agents/:agentName/tools` | Read or replace the tool allow-list |
-| `GET` | `/api/app/agents/:agentName/catalog` | Effective catalog exposed to an agent |
-| `GET` | `/api/app/audit-events` | Persistent execution history |
-| `POST` | `/api/app/agents/:agentName/test` | Test inference through an agent |
+| `GET` | `/api/app/health` | Platform health |
+| `POST` | `/api/app/login` | Obtain IRIS JWTs (native handler) |
+| `POST` | `/api/app/refresh` | Refresh JWTs (native handler) |
+| `GET/POST` | `/api/app/ai-users` | AI user registry |
+| `PUT` | `/api/app/ai-users/:username/agents` | User agent assignments |
+| `GET` | `/api/app/my-agents` | Agents authorized for the caller |
+| `POST` | `/api/app/chat` | Start/continue a conversation; return statistics and summary metadata |
+| `GET` | `/api/app/providers` | Supported provider fields |
+| `GET/POST` | `/api/app/models` | List/create models and declared capacities |
+| `PUT/DELETE` | `/api/app/models/:modelName` | Update/delete model; referenced models cannot be deleted |
+| `GET` | `/api/app/tools` | Local and imported MCP tool catalog |
+| `POST` | `/api/app/tools/sync` | Discover compiled local tools in APP |
+| `PUT` | `/api/app/tools/:toolName` | Update tool governance |
+| `GET/POST` | `/api/app/policies` | Registered policies |
+| `GET/POST` | `/api/app/agents` | List/create agent definitions |
+| `PUT/DELETE` | `/api/app/agents/:agentName` | Update/delete agent; dependency checks apply |
+| `GET/PUT` | `/api/app/agents/:agentName/tools` | Read/replace assigned tools |
+| `GET` | `/api/app/agents/:agentName/catalog` | Effective agent tool catalog |
+| `POST` | `/api/app/agents/:agentName/test` | Governed agent inference |
+| `GET/POST` | `/api/app/mcp-servers` | List/register MCP servers |
+| `PUT/DELETE` | `/api/app/mcp-servers/:serverName` | Update/delete server; assigned tools block deletion |
+| `GET` | `/api/app/mcp-servers/:serverName/tools` | Imported tools for a server |
+| `POST` | `/api/app/mcp-servers/:serverName/tools/sync` | Discover/refresh a remote MCP catalog |
+| `GET` | `/api/app/audit-events` | Tool execution audit history |
+
+Agent `tools`, `delegates`, `policies`, `contextBudget` and `responseReserve` are edited through the agent POST/PUT payload. Sign out in the console clears its browser JWT storage.
 
 ## Project structure
 
 ```text
 iris/src/App/Governance/       # persistent governance model and validation
 iris/src/App/REST/             # administrative API
-iris/src/App/Demo/             # sample domain model and %AI.Tool classes
+iris-demo/src/                # separate inventory/shipment classes and MCP publication
+iris-mcp/src/                 # separate daily-price classes and MCP publication
+iris/config/                  # Config Store model descriptor compiled in %SYS
 iris/src/App/AIHub/            # policies, adapter, and AI Hub factory
 iris/src/App/Interop/          # production, messages, service, and operation
 frontend/src/                  # React console
@@ -535,12 +532,13 @@ frontend/src/                  # React console
 webgateway/shared/             # Web Gateway configuration
 ```
 
-All ObjectScript source is loaded from `iris/src`. AI Hub is a mandatory
-dependency.
+Each IRIS image loads its own source directory; the core also installs its
+Config Store descriptor in `%SYS`. AI Hub is a mandatory dependency.
 
 ## External MCP servers
 
-The deployment includes an independent `iris-mcp` instance using the same IRIS
+The deployment includes `iris-demo` for inventory/shipments and an independent
+`iris-mcp` pricing instance using the same IRIS
 image as the backend and its own persistent databases. A native
 `%AI.MCP.Service` publishes only `SearchInventory` and `GetDailyPrices`.
 The external demo has one persistent class, `External.Demo.Price`, containing
@@ -555,9 +553,9 @@ authentication and lifecycle states. The test endpoint reachable from the
 backend is `http://iris-mcp-transport:8080/mcp`. Bearer tokens must be
 `secret://...` references resolved from Secure Wallet.
 
-For each approved, enabled server, **Discover tools** retrieves the complete MCP
-catalog, including pagination. **View tools** searches by name or description
-and displays parameter definitions. Imported tools appear in the tool catalog
+For each approved, enabled server, the refresh icon (**Discover tools** tooltip) retrieves the complete MCP
+catalog, including pagination. The list icon (**View tools**) opens a wide modal
+with search by name/description and parameter definitions. Imported tools appear in the tool catalog
 with their server of origin and can be selected when editing an agent. Only
 assigned tools are exposed to that agent, under its authorization and audit
 policies.
@@ -582,7 +580,7 @@ for setup and validation.
 
 ```powershell
 Set-Location frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -601,62 +599,24 @@ Domain values returned by IRIS—such as model, agent, policy, and tool names or
 descriptions—are deliberately presented as stored and are not translated by
 the client.
 
-## IRIS image compatibility
+## Image prerequisite
 
-Preview `2027.1.0AI.109.0` reports a native startup alert in both upgraded persistent instances and a fresh test instance: `<METHOD DOES NOT EXIST>Sharding+2^STU`, referencing `SYS.ICM.Sharding`. MCP, BPL and agent functional tests pass, but resolve this alert with a compatible image and persistent environment before taking that deployment to production. Vendor routines and health checks are not altered.
+The default image is `intersystems/iris-community:2027.1.0AI.109.0`. Import the
+AI Hub EAP image with `docker load -i <archive>` and use its loaded tag as
+`IRIS_IMAGE`, or assign the project's default tag locally. The same image is
+used by all three IRIS builds and both MCP transports. It must include the AI Hub
+SDK and `iris-mcp-server`; floating preview tags may have different contents.
 
-
-When this specific startup alert prevents Compose dependencies from starting, inspect the IRIS logs and verify native sessions first. Only after confirming that IRIS is operational, start the dependent services explicitly with `docker compose up -d --no-deps iris-demo-transport iris-mcp-transport webgateway frontend`, then run both MCP smoke tests. This does not resolve the native alert.
-
-## Updating to the AI Hub preview
-
-The target is **2027.1.0AI.109.0**, from the AI Hub Early Access program described in the [InterSystems publication](https://community.intersystems.com/post/intersystems-iris-ai-hub-part-2-build-your-first-agent). The checked standard public
-`latest-preview` image does not contain `iris-mcp-server`; this project requires
-the AI Hub variant from the EAP program.
-
-1. Download the AI Hub image from EAP and import the received archive with
-   `docker load -i`. Note the actual image tag printed by Docker.
-2. Tag it as `intersystems/iris-community:2027.1.0AI.109.0`, or set `IRIS_IMAGE` in `.env` to its
-   actual tag. Compose, all three Dockerfiles and both transports use the same
-   version. The image is not included in the repository.
-3. Build before stopping the environment:
-
-```powershell
-docker compose build iris iris-demo iris-mcp
-docker compose stop -t 90 frontend webgateway iris-demo-transport iris-mcp-transport iris iris-demo iris-mcp
-docker compose up -d --no-deps iris iris-demo iris-mcp
-```
-
-Wait for the persistent instance upgrade to finish and verify startup. Do not
-delete `shared/durable`: it holds application data and configuration. Reload
-application classes against the new SDK and rebuild their indexes:
-
-```powershell
-Get-Content -Raw iris/upgrades/preview.script | docker compose exec -T iris iris session IRIS
-Get-Content -Raw iris-demo/upgrade.script | docker compose exec -T iris-demo iris session IRIS
-Get-Content -Raw iris-mcp/upgrade.script | docker compose exec -T iris-mcp iris session IRIS
-docker compose up -d iris-demo-transport iris-mcp-transport webgateway frontend
-./iris-demo/tests/smoke.ps1
-./iris-mcp/tests/smoke.ps1
-```
-
-The upgrade installs `App.AIHub.Config.ModelDescriptor` from `iris/config/` in `%SYS` and rebuilds the Config Store registry. Existing `APP.AI.MODEL` references remain valid under preview validation. Conversations reopen through `agent.OpenSession()` while retaining exported state and statistics.
-
-MCP publication uses explicit XML `<ToolSet>` definitions with `<Include>` entries; inherited methods alone are not discovered by this preview.
-
-Require `ORCHESTRATOR_PREVIEW_UPGRADE_OK`, `BUSINESS_PREVIEW_UPGRADE_OK` and
-`PRICES_PREVIEW_UPGRADE_OK`. Scripts do not reseed inventory, shipments or prices.
-No backup copies are generated. Configuring an image version does not constitute
-a validated deployment: its EAP image must be available and pass build, startup
-and functional tests.
+The initial core build installs `App.AIHub.Config.ModelDescriptor` in `%SYS`,
+registers the Config Store schema and compiles all application classes. Each
+example image builds and seeds only its own namespace. See [Startup](#startup).
 
 ## Agent context budgets
 
 Models declare `maxContextTokens`, the actual total capacity served by the LLM
 endpoint. This is metadata for validation, not a remote server setting. For the
 local Llama service, keep it aligned with `LLM_CONTEXT_SIZE` in Compose; changing
-that environment setting requires recreating Llama. Existing models without an
-explicit capacity are initialized conservatively to 4096; configure the real
+that environment setting requires recreating Llama. New model registrations default to 4096 tokens when omitted; declare the real
 capacity for each endpoint.
 
 Agents declare `contextBudget` (input) and `responseReserve` (maximum generated
@@ -701,22 +661,19 @@ outputs bounded and the declared endpoint capacity accurate. The chat statistics
 panel shows declared capacity, input budget, response reserve and whether history
 was summarized before the last message.
 
-For an existing persistent deployment, rebuild the core image, recreate its
-container, then run `iris/upgrades/context-budget.script` as with the other
-application upgrades. Require `CONTEXT_BUDGET_UPGRADE_OK`. Data is preserved;
-the script only loads application classes and initializes missing budget fields.
-See [context regression tests](iris/tests/context-budget/README.md).
+See [context regression tests](iris/tests/context-budget/README.md) for isolated validation.
 
 ## Deleting registry entries and summary history
 
 The chat statistics retain the last summary's server timestamp, method (SDK
 Summarize or blocks) and count across subsequent messages in that conversation.
-Earlier summaries created before this metadata was introduced have no recorded
-timestamp. The last-send flag remains separate from the last recorded summary.
+Before the first summary, no summary timestamp is shown. The last-send flag remains separate from the last recorded summary.
 
 Models, agents and MCP server registrations have a Delete action with a
-confirmation. The API provides `DELETE /models/:name`, `DELETE /agents/:name`
-and `DELETE /mcp-servers/:name`. A model cannot be deleted while any agent
+confirmation modal identifying the resource type, display name and logical
+name. Edit/delete actions use pencil/trash icons with tooltips. The API provides
+`DELETE /api/app/models/:name`, `DELETE /api/app/agents/:name`
+and `DELETE /api/app/mcp-servers/:name`. A model cannot be deleted while any agent
 references it, regardless of status. An MCP server cannot be deleted while any
 of its tools is assigned to an agent. These checks also apply to direct API
 calls and return HTTP 409 with the dependency; missing entries return 404.
@@ -727,6 +684,8 @@ assignments or configured production AgentName settings; otherwise its tool,
 outgoing delegate and user assignments are removed. Chat transcripts and audit
 history remain. Deleting an unused model removes its connection configuration;
 it does not stop the LLM server or delete model files.
+
+## MCP discovery troubleshooting
 
 MCP transports wait for the IRIS superserver socket before starting the native
 client. In preview build 109, starting offline and reconnecting can leave native
@@ -741,3 +700,18 @@ docker compose restart iris-demo-transport iris-mcp-transport
 The Orchestrator rejects that invalid diagnostic descriptor without replacing
 the existing catalog. The View tools and Discover tools actions use list and
 refresh icons with tooltips and accessible names.
+
+## First-install validation
+
+This repository targets new installations. Start with empty durable directories (`iris/shared`, `iris-demo/shared`, and `iris-mcp/shared`). The initial build creates the schemas, native configuration and seed data; it does not convert existing deployments.
+
+Before loading test fixtures, verify a disposable core instance without persistent volumes:
+
+```powershell
+docker run -d --name ai-orchestrator-first-install-test -e ISC_CPF_MERGE_FILE= ai-orchestrator-iris --check-caps false --ISCAgent false
+# Wait for the IRIS startup-complete message.
+Get-Content -Raw iris/tests/first-install.script | docker exec -i ai-orchestrator-first-install-test iris session IRIS
+docker rm -f ai-orchestrator-first-install-test
+```
+
+Expected marker: `FIRST_INSTALL_FAILURES=0`. The check verifies empty application catalogs, initial policies and administrator, the separation of business examples, and repeatable bootstrap initialization.

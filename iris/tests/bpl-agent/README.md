@@ -9,7 +9,7 @@ or provider calls.
 
 ```powershell
 docker compose build iris
-docker run -d --name ai-orchestrator-bpl-test ai-orchestrator-iris --check-caps false --ISCAgent false
+docker run -d --name ai-orchestrator-bpl-test -e ISC_CPF_MERGE_FILE= ai-orchestrator-iris --check-caps false --ISCAgent false
 # Wait for IRIS startup before continuing.
 docker cp iris-demo/src/App/Demo ai-orchestrator-bpl-test:/tmp/test-demo
 docker cp iris/tests/bpl-agent ai-orchestrator-bpl-test:/tmp/bpl-agent-tests
