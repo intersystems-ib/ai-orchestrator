@@ -16,6 +16,7 @@ demo/.env.local
 demo/slides-exported.pdf
 demo/slides-exported.pptx
 models/*.gguf
+docs/
 
 *.log
 .DS_Store
