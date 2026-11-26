@@ -715,3 +715,8 @@ docker rm -f ai-orchestrator-first-install-test
 ```
 
 Expected marker: `FIRST_INSTALL_FAILURES=0`. The check verifies empty application catalogs, initial policies and administrator, the separation of business examples, and repeatable bootstrap initialization.
+
+## Users for demo
+
+User: superuser
+Password: sys

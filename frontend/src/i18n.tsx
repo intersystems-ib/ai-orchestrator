@@ -335,7 +335,6 @@ const en: Record<string, string> = {
   "mcp.empty": "No MCP servers have been registered yet.",
   "mcp.scope": "Configure the server and discover its tools to assign them to your agents.",
   "mcp.endpointHelp": "The URL must be reachable.",
-  ...es,
   "language.label": "Language", "language.es": "Español", "language.en": "English",
   "nav.overview": "AI Governance", "nav.chat": "Agent chat", "nav.models": "Model catalog", "nav.tools": "AI Hub tools", "nav.policies": "Policies", "nav.agents": "Agents", "nav.users": "AI users", "nav.audit": "Audit",
   "common.controlPlane": "CONTROL PLANE", "common.irisUser": "IRIS user", "common.authorizedUser": "Authorized user", "common.noAgentAccess": "No agent access", "common.connecting": "Connecting...", "common.logout": "Sign out", "common.retry": "Retry", "common.cancel": "Cancel", "common.apply": "Apply", "common.applying": "Saving...", "common.edit": "Edit", "common.register": "Register", "common.saveChanges": "Save changes", "common.none": "None", "common.select": "Select...", "common.enabled": "Enabled", "common.created": "Created", "common.experimental": "experimental", "common.noResources": "No resources are available.", "common.noApprovedResources": "No approved resources are available.",

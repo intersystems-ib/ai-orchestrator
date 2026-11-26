@@ -750,3 +750,8 @@ docker rm -f ai-orchestrator-first-install-test
 ```
 
 Resultado esperado: `FIRST_INSTALL_FAILURES=0`. Comprueba los catálogos de aplicación vacíos, las policies y el administrador iniciales, la separación de los ejemplos de negocio y la inicialización repetible del bootstrap.
+
+## Usuarios para la demo
+
+Usuario: superuser
+Contraseña: sys
